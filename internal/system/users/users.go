@@ -14,17 +14,17 @@ import (
 
 // User represents a Linux user account.
 type User struct {
-	Username    string   `json:"username"`
-	UID         int      `json:"uid"`
-	GID         int      `json:"gid"`
-	GECOS       string   `json:"gecos"`       // Full name / comment field
-	Home        string   `json:"home"`
-	Shell       string   `json:"shell"`
-	Groups      []string `json:"groups"`      // supplementary groups
-	PrimaryGroup string  `json:"primary_group"`
-	Locked      bool     `json:"locked"`      // true if shadow entry starts with !
-	IsSystem    bool     `json:"is_system"`   // UID < 1000
-	HasPassword bool     `json:"has_password"` // false if shadow is * or !
+	Username     string   `json:"username"`
+	UID          int      `json:"uid"`
+	GID          int      `json:"gid"`
+	GECOS        string   `json:"gecos"` // Full name / comment field
+	Home         string   `json:"home"`
+	Shell        string   `json:"shell"`
+	Groups       []string `json:"groups"` // supplementary groups
+	PrimaryGroup string   `json:"primary_group"`
+	Locked       bool     `json:"locked"`       // true if shadow entry starts with !
+	IsSystem     bool     `json:"is_system"`    // UID < 1000
+	HasPassword  bool     `json:"has_password"` // false if shadow is * or !
 }
 
 // Group represents a Linux group.
@@ -36,14 +36,14 @@ type Group struct {
 
 // CreateUserOpts are the options for creating a new user.
 type CreateUserOpts struct {
-	Username string `json:"username"`
-	Password string `json:"password"` // plaintext — hashed before passing to passwd
-	FullName string `json:"full_name"`
-	Home     string `json:"home"`     // empty = default /home/<username>
-	Shell    string `json:"shell"`    // empty = /bin/bash
+	Username string   `json:"username"`
+	Password string   `json:"password"` // plaintext — hashed before passing to passwd
+	FullName string   `json:"full_name"`
+	Home     string   `json:"home"`   // empty = default /home/<username>
+	Shell    string   `json:"shell"`  // empty = /bin/bash
 	Groups   []string `json:"groups"` // supplementary groups
-	System   bool   `json:"system"`   // create as system user (UID < 1000)
-	UID      int    `json:"uid"`      // 0 = auto-assign
+	System   bool     `json:"system"` // create as system user (UID < 1000)
+	UID      int      `json:"uid"`    // 0 = auto-assign
 }
 
 // Manager handles user and group operations.

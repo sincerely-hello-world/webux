@@ -20,11 +20,11 @@ import (
 // Playbook represents a discovered Ansible playbook file.
 type Playbook struct {
 	Path        string   `json:"path"`
-	Name        string   `json:"name"`         // filename without extension
+	Name        string   `json:"name"` // filename without extension
 	Plays       []Play   `json:"plays"`
 	VarsFiles   []string `json:"vars_files"`
 	Tags        []string `json:"tags"`
-	Description string   `json:"description"`  // first play's name field
+	Description string   `json:"description"` // first play's name field
 }
 
 // Play is one play within a playbook.
@@ -51,13 +51,13 @@ type InventoryGroup struct {
 // RunOptions controls how a playbook is executed.
 type RunOptions struct {
 	PlaybookPath string            `json:"playbook_path"`
-	Inventory    string            `json:"inventory"`    // path to inventory file
-	Limit        string            `json:"limit"`        // --limit <pattern>
-	Tags         string            `json:"tags"`         // --tags <tags>
-	ExtraVars    map[string]string `json:"extra_vars"`   // --extra-vars
-	Check        bool              `json:"check"`        // --check (dry run)
-	Diff         bool              `json:"diff"`         // --diff
-	Verbose      int               `json:"verbose"`      // 0-4 → -v through -vvvv
+	Inventory    string            `json:"inventory"`  // path to inventory file
+	Limit        string            `json:"limit"`      // --limit <pattern>
+	Tags         string            `json:"tags"`       // --tags <tags>
+	ExtraVars    map[string]string `json:"extra_vars"` // --extra-vars
+	Check        bool              `json:"check"`      // --check (dry run)
+	Diff         bool              `json:"diff"`       // --diff
+	Verbose      int               `json:"verbose"`    // 0-4 → -v through -vvvv
 }
 
 // ── Scanner ───────────────────────────────────────────────────────────────
@@ -244,11 +244,17 @@ func extractTags(plays []map[string]interface{}) []string {
 						if rawTags, ok := task["tags"]; ok {
 							switch tv := rawTags.(type) {
 							case string:
-								if !seen[tv] { seen[tv] = true; tags = append(tags, tv) }
+								if !seen[tv] {
+									seen[tv] = true
+									tags = append(tags, tv)
+								}
 							case []interface{}:
 								for _, tag := range tv {
 									s := toString(tag)
-									if !seen[s] { seen[s] = true; tags = append(tags, s) }
+									if !seen[s] {
+										seen[s] = true
+										tags = append(tags, s)
+									}
 								}
 							}
 						}

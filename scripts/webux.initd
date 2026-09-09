@@ -10,28 +10,36 @@
 
 NAME=webux
 DAEMON=/usr/local/bin/webux
-PIDFILE=/var/run/webux.pid
+CONFIG=/etc/webux/config.yaml
+# /run is the FHS 3.0 location for PID files; /var/run is only a compatibility
+# symlink to it on every current system.
+PIDFILE=/run/webux.pid
 LOGFILE=/var/log/webux.log
 DATADIR=/var/lib/webux
 
-export WEBUX_DATA_DIR=$DATADIR
-export WEBUX_CONFIG=/etc/webux/config.yaml
+# --config is the ONLY way to point the binary at its config file. The
+# WEBUX_CONFIG environment variable this script used to export is not read.
+DAEMON_OPTS="--config $CONFIG"
+
+# WEBUX_DATA_DIR IS honoured by the binary — keep it in step with data_dir in
+# /etc/webux/config.yaml.
+export WEBUX_DATA_DIR="$DATADIR"
 
 [ -x "$DAEMON" ] || exit 5
 
 case "$1" in
   start)
     echo -n "Starting $NAME: "
-    mkdir -p $DATADIR
+    mkdir -p "$DATADIR"
     start-stop-daemon --start --quiet --background \
-      --make-pidfile --pidfile $PIDFILE \
-      --exec $DAEMON >> $LOGFILE 2>&1
+      --make-pidfile --pidfile "$PIDFILE" \
+      --exec "$DAEMON" -- $DAEMON_OPTS >> "$LOGFILE" 2>&1
     echo "OK"
     ;;
   stop)
     echo -n "Stopping $NAME: "
-    start-stop-daemon --stop --quiet --pidfile $PIDFILE
-    rm -f $PIDFILE
+    start-stop-daemon --stop --quiet --pidfile "$PIDFILE"
+    rm -f "$PIDFILE"
     echo "OK"
     ;;
   restart|force-reload)
@@ -40,8 +48,8 @@ case "$1" in
     $0 start
     ;;
   status)
-    if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
-      echo "$NAME is running (pid $(cat $PIDFILE))"
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "$NAME is running (pid $(cat "$PIDFILE"))"
       exit 0
     else
       echo "$NAME is not running"

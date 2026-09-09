@@ -24,8 +24,8 @@ import (
 // candidateDirs lists where Puppet might store its state depending on
 // whether it was installed via AIO packages or from distro repos.
 var candidateDirs = []string{
-	"/opt/puppetlabs/puppet/cache",   // AIO (modern)
-	"/var/lib/puppet",                 // older / distro packages
+	"/opt/puppetlabs/puppet/cache", // AIO (modern)
+	"/var/lib/puppet",              // older / distro packages
 	"/var/cache/puppet",
 }
 
@@ -64,39 +64,39 @@ func clientDataDir() string {
 
 // AgentStatus is the overall picture of the Puppet agent on this node.
 type AgentStatus struct {
-	Installed    bool       `json:"installed"`
-	Version      string     `json:"version"`
-	CertName     string     `json:"cert_name"`
-	Server       string     `json:"server"`
-	Environment  string     `json:"environment"`
-	Enabled      bool       `json:"enabled"`
-	DisabledMsg  string     `json:"disabled_msg,omitempty"`
-	LastRunAt    *time.Time `json:"last_run_at,omitempty"`
-	LastRunAgo   string     `json:"last_run_ago,omitempty"`
-	RunSummary   *RunSummary `json:"run_summary,omitempty"`
-	StateDir     string     `json:"state_dir"`
-	ConfDir      string     `json:"conf_dir"`
+	Installed   bool        `json:"installed"`
+	Version     string      `json:"version"`
+	CertName    string      `json:"cert_name"`
+	Server      string      `json:"server"`
+	Environment string      `json:"environment"`
+	Enabled     bool        `json:"enabled"`
+	DisabledMsg string      `json:"disabled_msg,omitempty"`
+	LastRunAt   *time.Time  `json:"last_run_at,omitempty"`
+	LastRunAgo  string      `json:"last_run_ago,omitempty"`
+	RunSummary  *RunSummary `json:"run_summary,omitempty"`
+	StateDir    string      `json:"state_dir"`
+	ConfDir     string      `json:"conf_dir"`
 }
 
 // RunSummary mirrors the last_run_summary.yaml structure.
 type RunSummary struct {
-	Version     map[string]interface{} `json:"version" yaml:"version"`
-	Resources   ResourceSummary        `json:"resources" yaml:"resources"`
-	Events      EventSummary           `json:"events" yaml:"events"`
-	Changes     ChangeSummary          `json:"changes" yaml:"changes"`
-	Time        map[string]interface{} `json:"time" yaml:"time"`
-	ConfigInfo  map[string]interface{} `json:"config_info" yaml:"config_info"`
+	Version    map[string]interface{} `json:"version" yaml:"version"`
+	Resources  ResourceSummary        `json:"resources" yaml:"resources"`
+	Events     EventSummary           `json:"events" yaml:"events"`
+	Changes    ChangeSummary          `json:"changes" yaml:"changes"`
+	Time       map[string]interface{} `json:"time" yaml:"time"`
+	ConfigInfo map[string]interface{} `json:"config_info" yaml:"config_info"`
 }
 
 type ResourceSummary struct {
-	Changed      int `json:"changed" yaml:"changed"`
-	Failed       int `json:"failed" yaml:"failed"`
+	Changed         int `json:"changed" yaml:"changed"`
+	Failed          int `json:"failed" yaml:"failed"`
 	FailedToRestart int `json:"failed_to_restart" yaml:"failed_to_restart"`
-	OOSync       int `json:"out_of_sync" yaml:"out_of_sync"`
-	Restarted    int `json:"restarted" yaml:"restarted"`
-	Scheduled    int `json:"scheduled" yaml:"scheduled"`
-	Skipped      int `json:"skipped" yaml:"skipped"`
-	Total        int `json:"total" yaml:"total"`
+	OOSync          int `json:"out_of_sync" yaml:"out_of_sync"`
+	Restarted       int `json:"restarted" yaml:"restarted"`
+	Scheduled       int `json:"scheduled" yaml:"scheduled"`
+	Skipped         int `json:"skipped" yaml:"skipped"`
+	Total           int `json:"total" yaml:"total"`
 }
 
 type EventSummary struct {
@@ -122,12 +122,12 @@ type CatalogResource struct {
 
 // RunEvent is one resource event from the last run report.
 type RunEvent struct {
-	Resource    string `json:"resource"`
-	Status      string `json:"status"` // changed | failed | skipped | success
-	Message     string `json:"message"`
-	Property    string `json:"property,omitempty"`
-	OldValue    string `json:"old_value,omitempty"`
-	NewValue    string `json:"new_value,omitempty"`
+	Resource string `json:"resource"`
+	Status   string `json:"status"` // changed | failed | skipped | success
+	Message  string `json:"message"`
+	Property string `json:"property,omitempty"`
+	OldValue string `json:"old_value,omitempty"`
+	NewValue string `json:"new_value,omitempty"`
 }
 
 // ── Agent ────────────────────────────────────────────────────────────────
@@ -135,13 +135,12 @@ type RunEvent struct {
 // Agent is the main entry point for reading Puppet state.
 type Agent struct{}
 
-
 // findPuppetBin searches all known puppet installation locations.
 // The puppetlabs AIO installer puts puppet in /opt/puppetlabs/bin/,
 // distro packages may put it in /usr/bin/, and some setups use /usr/local/bin/.
 func findPuppetBin() string {
 	knownPaths := []string{
-		"/opt/puppetlabs/bin/puppet",  // AIO (puppetlabs repo) — most common
+		"/opt/puppetlabs/bin/puppet", // AIO (puppetlabs repo) — most common
 		"/usr/bin/puppet",
 		"/usr/local/bin/puppet",
 		"/usr/sbin/puppet",
@@ -321,7 +320,9 @@ func (a *Agent) RunAgent(ctx context.Context, noop bool, out chan<- string) (str
 	cliCmd := "puppet " + strings.Join(args, " ")
 
 	bin := findPuppetBin()
-	if bin == "" { bin = "puppet" }
+	if bin == "" {
+		bin = "puppet"
+	}
 	cmd := exec.CommandContext(ctx, bin, args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -369,7 +370,9 @@ func (a *Agent) RunAgent(ctx context.Context, noop bool, out chan<- string) (str
 // Enable enables the Puppet agent. Returns CLI equivalent.
 func (a *Agent) Enable() (string, error) {
 	bin := findPuppetBin()
-	if bin == "" { bin = "puppet" }
+	if bin == "" {
+		bin = "puppet"
+	}
 	if err := exec.Command(bin, "agent", "--enable").Run(); err != nil {
 		return "", fmt.Errorf("puppet enable: %w", err)
 	}
@@ -394,7 +397,9 @@ func (a *Agent) Facts() (map[string]interface{}, error) {
 	if err != nil {
 		// Try puppet facts
 		fbin := findPuppetBin()
-		if fbin == "" { fbin = "puppet" }
+		if fbin == "" {
+			fbin = "puppet"
+		}
 		out, err = exec.Command(fbin, "facts", "--render-as", "json").Output()
 		if err != nil {
 			return nil, fmt.Errorf("facter/puppet facts unavailable: %w", err)
@@ -411,7 +416,9 @@ func (a *Agent) Facts() (map[string]interface{}, error) {
 
 func (a *Agent) configPrint(key string) string {
 	cbin := findPuppetBin()
-	if cbin == "" { cbin = "puppet" }
+	if cbin == "" {
+		cbin = "puppet"
+	}
 	out, err := exec.Command(cbin, "config", "print", key).Output()
 	if err != nil {
 		return ""
@@ -455,15 +462,15 @@ func humanDuration(d time.Duration) string {
 // CLIEquivalents returns the shell commands that map to our read operations.
 func CLIEquivalents() map[string]string {
 	return map[string]string{
-		"status":    "puppet agent --configprint all | grep -E 'server|certname|environment'",
-		"run":       "puppet agent --test --onetime --no-daemonize",
-		"noop":      "puppet agent --test --onetime --noop --no-daemonize",
-		"enable":    "puppet agent --enable",
-		"disable":   "puppet agent --disable",
-		"facts":     "facter -j",
-		"catalog":   "cat $(puppet config print client_datadir)/catalog/$(puppet config print certname).json",
-		"summary":   "cat $(puppet config print statedir)/last_run_summary.yaml",
-		"report":    "cat $(puppet config print statedir)/last_run_report.yaml",
+		"status":  "puppet agent --configprint all | grep -E 'server|certname|environment'",
+		"run":     "puppet agent --test --onetime --no-daemonize",
+		"noop":    "puppet agent --test --onetime --noop --no-daemonize",
+		"enable":  "puppet agent --enable",
+		"disable": "puppet agent --disable",
+		"facts":   "facter -j",
+		"catalog": "cat $(puppet config print client_datadir)/catalog/$(puppet config print certname).json",
+		"summary": "cat $(puppet config print statedir)/last_run_summary.yaml",
+		"report":  "cat $(puppet config print statedir)/last_run_report.yaml",
 	}
 }
 

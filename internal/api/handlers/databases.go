@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/brendan4linux/webux/internal/learn"
 	"github.com/brendan4linux/webux/internal/system/databases"
+	"github.com/go-chi/chi/v5"
 )
 
 // DatabasesHandler manages database detection and queries.

@@ -79,13 +79,25 @@ func (h *AIHandler) SaveSettings(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
 	}
-	if body.Provider != ""     { h.setSetting("ai.provider", body.Provider) }
-	if body.OllamaURL != ""    { h.setSetting("ai.ollama_url", body.OllamaURL) }
+	if body.Provider != "" {
+		h.setSetting("ai.provider", body.Provider)
+	}
+	if body.OllamaURL != "" {
+		h.setSetting("ai.ollama_url", body.OllamaURL)
+	}
 	h.setSetting("ai.ollama_model", body.OllamaModel) // allow empty to mean "auto"
-	if body.APIKey != ""       { h.setSetting("ai.api_key", body.APIKey) }
-	if body.BaseURL != ""      { h.setSetting("ai.base_url", body.BaseURL) }
-	if body.Model != ""        { h.setSetting("ai.model", body.Model) }
-	if body.SystemPrompt != "" { h.setSetting("ai.system_prompt", body.SystemPrompt) }
+	if body.APIKey != "" {
+		h.setSetting("ai.api_key", body.APIKey)
+	}
+	if body.BaseURL != "" {
+		h.setSetting("ai.base_url", body.BaseURL)
+	}
+	if body.Model != "" {
+		h.setSetting("ai.model", body.Model)
+	}
+	if body.SystemPrompt != "" {
+		h.setSetting("ai.system_prompt", body.SystemPrompt)
+	}
 	writeJSON(w, map[string]interface{}{"ok": true})
 }
 
@@ -108,7 +120,9 @@ func (h *AIHandler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 // PullModel handles POST /api/ai/models/pull — streams SSE download progress
 func (h *AIHandler) PullModel(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Model string `json:"model"` }
+	var body struct {
+		Model string `json:"model"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Model == "" {
 		http.Error(w, "model is required", http.StatusBadRequest)
 		return
@@ -146,7 +160,9 @@ func (h *AIHandler) PullModel(w http.ResponseWriter, r *http.Request) {
 
 // DeleteModel handles DELETE /api/ai/models
 func (h *AIHandler) DeleteModel(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Model string `json:"model"` }
+	var body struct {
+		Model string `json:"model"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Model == "" {
 		http.Error(w, "model is required", http.StatusBadRequest)
 		return

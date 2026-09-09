@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-const dockerVersion = "v1.43"
-
 // dockerSockets lists candidate paths in preference order.
 var dockerSockets = []string{
 	"/var/run/docker.sock",
@@ -24,6 +22,7 @@ var dockerSockets = []string{
 // Docker talks to the Docker Engine API over its unix socket.
 type Docker struct {
 	client *http.Client
+	apiVer string // URL prefix such as "v1.52" — negotiated in NewDocker
 }
 
 // NewDocker returns a Docker runtime if any known socket is accessible.
@@ -46,20 +45,24 @@ func NewDocker() *Docker {
 		},
 		Timeout: 30 * time.Second,
 	}
-	d := &Docker{client: client}
-	// Quick ping to confirm daemon is alive
+	d := &Docker{client: client, apiVer: dockerFallbackVersion}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	// Ping first: a daemon that is unreachable, or that answers with an error such as
+	// "client version is too old", must not be registered as an available runtime.
 	if err := d.Ping(ctx); err != nil {
 		return nil
 	}
+	// Ask the daemon which API version it serves instead of hard-coding one, so the
+	// panel keeps working across Docker releases that change the minimum version.
+	d.apiVer = negotiateAPIVersion(ctx, d.client, "docker", dockerFallbackVersion, nil)
 	return d
 }
 
 func (d *Docker) Name() string { return "docker" }
 
 func (d *Docker) url(path string) string {
-	return "http://localhost/" + dockerVersion + path
+	return socketBaseURL + "/" + d.apiVer + path
 }
 
 func (d *Docker) get(ctx context.Context, path string, out interface{}) error {
@@ -113,37 +116,33 @@ func (d *Docker) delete(ctx context.Context, path string) error {
 	return nil
 }
 
+// Ping reports whether the daemon is reachable and healthy. It probes the
+// version-less endpoint, which every Engine version serves, and treats a non-200
+// response as a failure — otherwise a daemon rejecting our API version would look
+// healthy and every later call would fail.
 func (d *Docker) Ping(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", d.url("/_ping"), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := d.client.Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return nil
+	_, err := pingDaemon(ctx, d.client, socketBaseURL+"/_ping")
+	return err
 }
 
 // dockerContainer is the raw Docker API container list entry.
 type dockerContainer struct {
-	Id      string            `json:"Id"`
-	Names   []string          `json:"Names"`
-	Image   string            `json:"Image"`
-	ImageID string            `json:"ImageID"`
-	Command string            `json:"Command"`
-	Created int64             `json:"Created"`
-	State   string            `json:"State"`
-	Status  string            `json:"Status"`
+	Id      string   `json:"Id"`
+	Names   []string `json:"Names"`
+	Image   string   `json:"Image"`
+	ImageID string   `json:"ImageID"`
+	Command string   `json:"Command"`
+	Created int64    `json:"Created"`
+	State   string   `json:"State"`
+	Status  string   `json:"Status"`
 	Ports   []struct {
 		IP          string `json:"IP"`
 		PrivatePort int    `json:"PrivatePort"`
 		PublicPort  int    `json:"PublicPort"`
 		Type        string `json:"Type"`
 	} `json:"Ports"`
-	Labels  map[string]string `json:"Labels"`
-	Mounts  []struct {
+	Labels map[string]string `json:"Labels"`
+	Mounts []struct {
 		Type        string `json:"Type"`
 		Source      string `json:"Source"`
 		Destination string `json:"Destination"`
@@ -299,10 +298,10 @@ func (d *Docker) Logs(ctx context.Context, id string, tail int) (io.ReadCloser, 
 }
 
 type dockerImage struct {
-	Id          string   `json:"Id"`
-	RepoTags    []string `json:"RepoTags"`
-	Created     int64    `json:"Created"`
-	Size        int64    `json:"Size"`
+	Id       string   `json:"Id"`
+	RepoTags []string `json:"RepoTags"`
+	Created  int64    `json:"Created"`
+	Size     int64    `json:"Size"`
 }
 
 func (d *Docker) ListImages(ctx context.Context) ([]Image, error) {

@@ -4,8 +4,14 @@
 
 | Tool    | Version | Install |
 |---------|---------|---------|
-| Go      | ≥ 1.22  | https://go.dev/dl or `sudo apt install golang-go` |
-| Node.js | ≥ 18    | https://nodejs.org or `nvm install 20` |
+| mise    | ≥ 2026.8 | https://mise.jdx.dev — installs the pinned Go / air / nub / goreleaser toolchain from `mise.toml` |
+| Go      | ≥ 1.22  | via mise (`mise install`; version pinned in `mise.toml`) |
+| Node    | 24 LTS  | not installed by hand — `nub` downloads it per the repo-root `.node-version` |
+| nub     | ≥ 0.9   | https://nubjs.com (or `mise install`, see `mise.toml`) — provisions Node itself |
+
+> The frontend is installed with **nub**, not npm. `web/` carries `nub.lock`
+> and no `package-lock.json`, so `npm ci` / `npm install` in `web/` is not the
+> supported path.
 
 ---
 
@@ -16,30 +22,45 @@
 go mod tidy
 
 # 2. Build frontend, copy dist, build binary — in one command:
-make all
+mise run build
 
 # 3. Run
 mkdir -p /tmp/webux-data
 WEBUX_DATA_DIR=/tmp/webux-data ./build/webux
 ```
 
-Open **http://localhost:9090**
+Open **https://localhost:8989** — the server is HTTPS-only with a self-signed
+certificate, so the browser shows a security warning on first visit (use
+"Advanced → Proceed", or `curl -k`). There are no plain-HTTP or port-9090
+endpoints.
 
-Run with `sudo` for full port→process mapping and service management:
+Login uses real Linux accounts, which means the process must be able to read
+`/etc/shadow` — i.e. run it with `sudo`, or add `--no-auth` for a
+development-only session:
+
 ```bash
+# Full functionality (port→process mapping, service management, real login)
 sudo WEBUX_DATA_DIR=/tmp/webux-data ./build/webux
+
+# No auth — the API and WebSocket skip auth entirely
+./build/webux --no-auth
 ```
+
+> `--no-auth` only bypasses the `/api/*` and `/ws` middleware. The frontend
+> still calls `GET /auth/whoami`, which answers 401 without a token, so the
+> login page still appears. See `readme_new.md` §10.1 for the two ways around
+> that (log in once for a session cookie, or set `auth.bypass_token`).
 
 ---
 
-## Manual build steps (if not using make)
+## Manual build steps (if not using mise)
 
 ```bash
 # 1. Resolve deps
 go mod tidy
 
 # 2. Build frontend
-cd web && npm install && npm run build && cd ..
+cd web && nub ci && nub run build && cd ..
 
 # 3. Copy dist next to embed.go (MUST happen before go build)
 rm -rf cmd/webux/dist
@@ -62,7 +83,7 @@ If tidy fails, check: `grep sqlite3 go.mod`
 
 **`pattern all:web/dist: no matching files found`**
 The `cp -r web/dist cmd/webux/dist` step was skipped or the frontend
-wasn't built yet. Run `make web` first.
+wasn't built yet. Run `mise run web` first.
 
 **`"embed" imported and not used`**
 The embed declaration lives in `cmd/webux/embed.go`. The `"embed"`

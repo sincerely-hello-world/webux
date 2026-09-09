@@ -32,12 +32,12 @@ type VHost struct {
 
 // Server is a detected webserver instance.
 type Server struct {
-	Type       Type     `json:"type"`
-	Version    string   `json:"version"`
-	ConfigPath string   `json:"config_path"`
-	PID        int      `json:"pid"`
-	Running    bool     `json:"running"`
-	VHosts     []VHost  `json:"vhosts"`
+	Type       Type    `json:"type"`
+	Version    string  `json:"version"`
+	ConfigPath string  `json:"config_path"`
+	PID        int     `json:"pid"`
+	Running    bool    `json:"running"`
+	VHosts     []VHost `json:"vhosts"`
 }
 
 // Manager handles all detected webservers.

@@ -91,7 +91,9 @@ func (h *PackagesHandler) Search(w http.ResponseWriter, r *http.Request) {
 
 // Install handles POST /api/packages/install — streams SSE
 func (h *PackagesHandler) Install(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Name string `json:"name"` }
+	var body struct {
+		Name string `json:"name"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
@@ -101,7 +103,9 @@ func (h *PackagesHandler) Install(w http.ResponseWriter, r *http.Request) {
 
 // Remove handles POST /api/packages/remove — streams SSE
 func (h *PackagesHandler) Remove(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Name string `json:"name"` }
+	var body struct {
+		Name string `json:"name"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
@@ -112,7 +116,9 @@ func (h *PackagesHandler) Remove(w http.ResponseWriter, r *http.Request) {
 // Upgrade handles POST /api/packages/upgrade — streams SSE
 // Body: {"name": "nginx"} or {} for full system upgrade
 func (h *PackagesHandler) Upgrade(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Name string `json:"name"` }
+	var body struct {
+		Name string `json:"name"`
+	}
 	json.NewDecoder(r.Body).Decode(&body)
 	h.streamPackageOp(w, r, body.Name, "upgrade")
 }
@@ -293,7 +299,9 @@ func (h *PackagesHandler) AddFlatpakRemote(w http.ResponseWriter, r *http.Reques
 
 // RemoveFlatpakRemote handles DELETE /api/packages/repos/flatpak
 func (h *PackagesHandler) RemoveFlatpakRemote(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Name string `json:"name"` }
+	var body struct {
+		Name string `json:"name"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Name == "" {
 		http.Error(w, "name is required", http.StatusBadRequest)
 		return
@@ -325,7 +333,9 @@ func (h *PackagesHandler) ListFlatpaks(w http.ResponseWriter, r *http.Request) {
 
 // RemoveFlatpak handles POST /api/packages/flatpak/remove — streams SSE
 func (h *PackagesHandler) RemoveFlatpak(w http.ResponseWriter, r *http.Request) {
-	var body struct{ AppID string `json:"app_id"` }
+	var body struct {
+		AppID string `json:"app_id"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.AppID == "" {
 		http.Error(w, "app_id is required", http.StatusBadRequest)
 		return

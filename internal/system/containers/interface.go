@@ -51,7 +51,7 @@ type PortMapping struct {
 
 // Mount is a volume or bind mount.
 type Mount struct {
-	Type        string `json:"type"`   // bind | volume | tmpfs
+	Type        string `json:"type"` // bind | volume | tmpfs
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 	Mode        string `json:"mode"`
@@ -60,11 +60,11 @@ type Mount struct {
 
 // Image is a local container image.
 type Image struct {
-	ID       string    `json:"id"`
-	ShortID  string    `json:"short_id"`
-	Tags     []string  `json:"tags"`
-	Created  time.Time `json:"created"`
-	SizeBytes int64    `json:"size_bytes"`
+	ID        string    `json:"id"`
+	ShortID   string    `json:"short_id"`
+	Tags      []string  `json:"tags"`
+	Created   time.Time `json:"created"`
+	SizeBytes int64     `json:"size_bytes"`
 }
 
 // Stats is a point-in-time container resource snapshot.

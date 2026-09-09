@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/brendan4linux/webux/internal/learn"
 	"github.com/brendan4linux/webux/internal/system/users"
+	"github.com/go-chi/chi/v5"
 )
 
 // UsersHandler manages Linux user and group accounts.

@@ -2,9 +2,14 @@ root = "."
 tmp_dir = ".air"
 
 [build]
-  cmd = "go build -o .air/webux ./cmd/webux"
+  # 与发布产物保持一致: 默认编入 mysql + postgres 驱动 (见 .goreleaser.yaml 的
+  # builds.tags)。不加时 mysql_stub.go (//go:build !mysql) 会让 connectMySQL 返回
+  # ErrDriverNotCompiled —— dev 下能探测实例但无法执行查询, 与线上行为不符。
+  cmd = 'go build -tags "mysql postgres" -o .air/webux ./cmd/webux'
   bin = ".air/webux"
-  args_bin = ["--config", "/dev/null"]
+  # 开发模式: --config /dev/null (默认配置, 端口 :8989) + --no-auth (关闭鉴权)。
+  # data_dir 由 mise 的 dev / dev-backend 任务通过 WEBUX_DATA_DIR 注入 /tmp/webux-data。
+  args_bin = ["--config", "/dev/null", "--no-auth"]
   include_ext = ["go"]
   exclude_dir = ["web", ".air", "build"]
   delay = 500

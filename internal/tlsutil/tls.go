@@ -71,7 +71,7 @@ func Load(cfg Config) (*tls.Config, error) {
 // or generates a new one if it doesn't exist or is expiring within 30 days.
 func loadOrGenerateSelfSigned(dataDir string) (tls.Certificate, error) {
 	certPath := filepath.Join(dataDir, "webux.crt")
-	keyPath  := filepath.Join(dataDir, "webux.key")
+	keyPath := filepath.Join(dataDir, "webux.key")
 
 	// Try loading existing cert
 	if _, err := os.Stat(certPath); err == nil {

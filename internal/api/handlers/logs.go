@@ -139,7 +139,6 @@ func streamSSE(ctx context.Context, r io.Reader, w http.ResponseWriter, flusher 
 	}
 }
 
-
 // splitLines splits a chunk on newlines, trimming empty trailing entries.
 func splitLines(s string) []string {
 	var out []string

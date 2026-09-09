@@ -43,12 +43,18 @@ dnf install -y -q \
     gcc make ca-certificates \
     2>/dev/null
 
-# Install Node.js 22 via NodeSource
-curl -fsSL https://rpm.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+# Install Node.js 24 LTS via NodeSource (Node 22 reaches EOL on 2026-07-28)
+curl -fsSL https://rpm.nodesource.com/setup_24.x | bash - >/dev/null 2>&1
 dnf install -y -q nodejs 2>/dev/null
 
+# Install nub — the frontend is installed with nub, not npm
+# (web/ carries nub.lock and no package-lock.json, so 'npm ci' cannot work)
+npm install -g @nubjs/nub >/dev/null 2>&1
+
+# Build the frontend and sync it into cmd/webux/dist (//go:embed dist needs it)
 echo '→ Building frontend...'
-cd web && npm ci --silent && cd ..
+cd web && nub ci --silent && nub run build && cd ..
+rm -rf cmd/webux/dist && cp -r web/dist cmd/webux/dist
 
 echo '→ Building webux-pam...'
 go mod tidy
@@ -66,7 +72,8 @@ echo ""
 echo "✓ Done — build/release/webux-pam-linux-amd64-rhel"
 echo ""
 echo "Next steps:"
-echo "  # Copy as the primary amd64 binary for RPM packaging:"
-echo "  cp build/release/webux-pam-linux-amd64-rhel build/release/webux-pam-linux-amd64"
-echo "  ./scripts/build-packages.sh ${VERSION} amd64"
-echo "  gh release upload v${VERSION} build/packages/*.rpm"
+echo "  GoReleaser (mise run snapshot / mise run release) generates the standard packages"
+echo "  with CGO_ENABLED=0 and does NOT build this PAM binary, so ship it yourself:"
+echo "    gh release upload v${VERSION} build/release/webux-pam-linux-amd64-rhel --clobber"
+echo "  The -rhel suffix marks the glibc/RHEL baseline (the ubuntu script builds the"
+echo "  plain name); it needs libpam on the target system."

@@ -62,8 +62,12 @@ func StreamInterfaceStats(w http.ResponseWriter, r *http.Request) {
 
 			rxRate := float64(curr[0]-prev[0]) / elapsed
 			txRate := float64(curr[8]-prev[8]) / elapsed
-			if rxRate < 0 { rxRate = 0 } // counter wrap
-			if txRate < 0 { txRate = 0 }
+			if rxRate < 0 {
+				rxRate = 0
+			} // counter wrap
+			if txRate < 0 {
+				txRate = 0
+			}
 
 			fmt.Fprintf(w,
 				"data: {\"rx_bytes_sec\":%.0f,\"tx_bytes_sec\":%.0f,\"rx_total\":%d,\"tx_total\":%d,\"ts\":%d}\n\n",

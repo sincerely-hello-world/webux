@@ -14,7 +14,7 @@ import (
 
 // SystemdSocketUnit represents a parsed .socket unit file.
 type SystemdSocketUnit struct {
-	Name        string   // e.g. "ssh.socket"
+	Name        string // e.g. "ssh.socket"
 	Description string
 	ListenPorts []uint16 // ports declared in ListenStream= / ListenDatagram=
 	ListenAddrs []string // raw values (may include paths for Unix sockets)

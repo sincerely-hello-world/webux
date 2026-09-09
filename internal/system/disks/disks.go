@@ -40,11 +40,11 @@ type MountUsage struct {
 }
 
 type PhysicalVolume struct {
-	Name  string `json:"name"`
+	Name   string `json:"name"`
 	VGName string `json:"vg_name"`
-	Size  int64  `json:"size"`
-	Free  int64  `json:"free"`
-	SizeH string `json:"size_human"`
+	Size   int64  `json:"size"`
+	Free   int64  `json:"free"`
+	SizeH  string `json:"size_human"`
 }
 
 type LogicalVolume struct {
@@ -223,8 +223,8 @@ type lsblkDev struct {
 	Type        string      `json:"type"`
 	Size        interface{} `json:"size"`
 	FSType      *string     `json:"fstype"`
-	Mountpoint  *string     `json:"mountpoint"`   // older lsblk
-	Mountpoints []string    `json:"mountpoints"`  // newer lsblk (array)
+	Mountpoint  *string     `json:"mountpoint"`  // older lsblk
+	Mountpoints []string    `json:"mountpoints"` // newer lsblk (array)
 	Label       *string     `json:"label"`
 	Model       *string     `json:"model"`
 	Rota        interface{} `json:"rota"`
@@ -271,7 +271,9 @@ func toLsblk(d lsblkDev) BlockDevice {
 		}
 	}
 
-	if d.FSType != nil { bd.FSType = *d.FSType }
+	if d.FSType != nil {
+		bd.FSType = *d.FSType
+	}
 
 	// mountpoints (array, newer lsblk) takes priority over mountpoint (string)
 	if len(d.Mountpoints) > 0 {
@@ -285,12 +287,18 @@ func toLsblk(d lsblkDev) BlockDevice {
 		bd.MountPoint = *d.Mountpoint
 	}
 
-	if d.Label != nil { bd.Label = *d.Label }
-	if d.Model != nil { bd.Model = strings.TrimSpace(*d.Model) }
+	if d.Label != nil {
+		bd.Label = *d.Label
+	}
+	if d.Model != nil {
+		bd.Model = strings.TrimSpace(*d.Model)
+	}
 
 	switch v := d.Rota.(type) {
-	case bool:   bd.Rota = v
-	case string: bd.Rota = v == "1" || v == "true"
+	case bool:
+		bd.Rota = v
+	case string:
+		bd.Rota = v == "1" || v == "true"
 	}
 
 	for _, c := range d.Children {
@@ -302,7 +310,9 @@ func toLsblk(d lsblkDev) BlockDevice {
 func countParts(d BlockDevice) int {
 	n := 0
 	for _, c := range d.Children {
-		if c.Type == "part" { n++ }
+		if c.Type == "part" {
+			n++
+		}
 		n += countParts(c)
 	}
 	return n
@@ -320,14 +330,21 @@ func listMounts() []MountUsage {
 	scanner := bufio.NewScanner(strings.NewReader(string(out)))
 	first := true
 	for scanner.Scan() {
-		if first { first = false; continue }
+		if first {
+			first = false
+			continue
+		}
 		f := strings.Fields(scanner.Text())
-		if len(f) < 7 || isVirtualFS(f[1]) { continue }
+		if len(f) < 7 || isVirtualFS(f[1]) {
+			continue
+		}
 		total, _ := strconv.ParseInt(f[2], 10, 64)
-		used, _  := strconv.ParseInt(f[3], 10, 64)
-		free, _  := strconv.ParseInt(f[4], 10, 64)
+		used, _ := strconv.ParseInt(f[3], 10, 64)
+		free, _ := strconv.ParseInt(f[4], 10, 64)
 		pct := 0.0
-		if total > 0 { pct = float64(used) / float64(total) * 100 }
+		if total > 0 {
+			pct = float64(used) / float64(total) * 100
+		}
 		mounts = append(mounts, MountUsage{
 			Device: f[0], FSType: f[1],
 			Total: total, Used: used, Free: free, UsePercent: pct,
@@ -340,11 +357,13 @@ func listMounts() []MountUsage {
 
 func isVirtualFS(fs string) bool {
 	for _, v := range []string{
-		"tmpfs","devtmpfs","sysfs","proc","devpts","cgroup","cgroup2",
-		"pstore","efivarfs","bpf","tracefs","debugfs","hugetlbfs",
-		"mqueue","fusectl","overlay","squashfs","securityfs","autofs",
+		"tmpfs", "devtmpfs", "sysfs", "proc", "devpts", "cgroup", "cgroup2",
+		"pstore", "efivarfs", "bpf", "tracefs", "debugfs", "hugetlbfs",
+		"mqueue", "fusectl", "overlay", "squashfs", "securityfs", "autofs",
 	} {
-		if fs == v { return true }
+		if fs == v {
+			return true
+		}
 	}
 	return false
 }
@@ -356,7 +375,9 @@ func listPVs() ([]PhysicalVolume, error) {
 		"--reportformat", "json", "--units", "b", "--nosuffix",
 		"-o", "pv_name,vg_name,pv_size,pv_free",
 	).Output()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	var raw struct {
 		Report []struct {
@@ -368,7 +389,9 @@ func listPVs() ([]PhysicalVolume, error) {
 			} `json:"pv"`
 		} `json:"report"`
 	}
-	if err := json.Unmarshal(out, &raw); err != nil { return nil, err }
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return nil, err
+	}
 
 	var pvs []PhysicalVolume
 	for _, r := range raw.Report {
@@ -388,7 +411,9 @@ func listVGs() ([]VolumeGroup, error) {
 		"--reportformat", "json", "--units", "b", "--nosuffix",
 		"-o", "vg_name,vg_size,vg_free,pv_count,lv_count",
 	).Output()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	var raw struct {
 		Report []struct {
@@ -401,7 +426,9 @@ func listVGs() ([]VolumeGroup, error) {
 			} `json:"vg"`
 		} `json:"report"`
 	}
-	if err := json.Unmarshal(out, &raw); err != nil { return nil, err }
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return nil, err
+	}
 
 	var vgs []VolumeGroup
 	for _, r := range raw.Report {
@@ -412,7 +439,7 @@ func listVGs() ([]VolumeGroup, error) {
 			lvc, _ := strconv.Atoi(v.LVCount)
 			vgs = append(vgs, VolumeGroup{
 				Name: v.VGName, Size: size, Free: free, Used: size - free,
-				SizeH: fmtBytes(size), FreeH: fmtBytes(free), UsedH: fmtBytes(size-free),
+				SizeH: fmtBytes(size), FreeH: fmtBytes(free), UsedH: fmtBytes(size - free),
 				PVCount: pvc, LVCount: lvc,
 			})
 		}
@@ -425,7 +452,9 @@ func listLVs() ([]LogicalVolume, error) {
 		"--reportformat", "json", "--units", "b", "--nosuffix",
 		"-o", "lv_name,vg_name,lv_size,lv_dm_path",
 	).Output()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	var raw struct {
 		Report []struct {
@@ -437,7 +466,9 @@ func listLVs() ([]LogicalVolume, error) {
 			} `json:"lv"`
 		} `json:"report"`
 	}
-	if err := json.Unmarshal(out, &raw); err != nil { return nil, err }
+	if err := json.Unmarshal(out, &raw); err != nil {
+		return nil, err
+	}
 
 	var lvs []LogicalVolume
 	for _, r := range raw.Report {
@@ -446,7 +477,7 @@ func listLVs() ([]LogicalVolume, error) {
 			lvs = append(lvs, LogicalVolume{
 				Name: l.LVName, VGName: l.VGName,
 				FullName: "/dev/" + l.VGName + "/" + l.LVName,
-				Size: size, SizeH: fmtBytes(size),
+				Size:     size, SizeH: fmtBytes(size),
 			})
 		}
 	}
@@ -476,17 +507,25 @@ func streamCmd(ctx context.Context, out chan<- string, name string, args ...stri
 
 func detectFSType(device string) string {
 	out, err := exec.Command("blkid", "-o", "value", "-s", "TYPE", device).Output()
-	if err != nil { return "" }
+	if err != nil {
+		return ""
+	}
 	return strings.TrimSpace(string(out))
 }
 
 func getMountPoint(device string) string {
 	out, err := exec.Command("findmnt", "-n", "-o", "TARGET", device).Output()
-	if err == nil { return strings.TrimSpace(string(out)) }
+	if err == nil {
+		return strings.TrimSpace(string(out))
+	}
 	// fallback: /proc/mounts
 	out2, err2 := exec.Command("grep", device, "/proc/mounts").Output()
-	if err2 != nil { return "" }
-	if f := strings.Fields(string(out2)); len(f) >= 2 { return f[1] }
+	if err2 != nil {
+		return ""
+	}
+	if f := strings.Fields(string(out2)); len(f) >= 2 {
+		return f[1]
+	}
 	return ""
 }
 
@@ -502,10 +541,17 @@ func parseBytes(s string) int64 {
 }
 
 func fmtBytes(b int64) string {
-	if b <= 0 { return "0 B" }
+	if b <= 0 {
+		return "0 B"
+	}
 	const u = 1024
-	if b < u { return fmt.Sprintf("%d B", b) }
+	if b < u {
+		return fmt.Sprintf("%d B", b)
+	}
 	div, exp := int64(u), 0
-	for n := b / u; n >= u; n /= u { div *= u; exp++ }
+	for n := b / u; n >= u; n /= u {
+		div *= u
+		exp++
+	}
 	return fmt.Sprintf("%.1f %cB", float64(b)/float64(div), "KMGTPE"[exp])
 }

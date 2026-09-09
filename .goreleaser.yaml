@@ -1,0 +1,334 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# Webux — GoReleaser 配置
+#
+# 取代了原来的 Makefile 打包段 + scripts/build-packages.sh + scripts/package.sh
+# + fpm 手工编排。nfpm 为纯 Go 实现, 因此 **不再需要 fpm / rpmbuild / bsdtar**。
+#
+# 产物 (每个架构各一份):
+#   webux_<ver>_linux_<arch>.tar.gz            安装树 (主产物, 解压到 / 即可)
+#   webux_<ver>_linux_<arch>_bin.tar.gz        纯二进制
+#   webux_<ver>_<debarch>.deb                  Debian / Ubuntu
+#   webux-<ver>-1.<rpmarch>.rpm                RHEL / Fedora / SUSE
+#   webux-<ver>-1-<pacarch>.pkg.tar.zst        Arch / Manjaro / CachyOS
+#   webux_<ver>_checksums.txt                  以上全部文件的 SHA256
+#
+# 常用命令:
+#   goreleaser check                            校验本文件
+#   goreleaser release --snapshot --clean       本地试跑 (不发布, 不需要 tag)
+#   goreleaser release --clean                  正式发布 (需要 tag + 干净工作区)
+#   mise run snapshot / mise run release        以上两者的包装
+#
+# 架构映射由 nfpm 自动完成, 与原 fpm 产物逐字一致:
+#   amd64 → deb amd64   / rpm x86_64  / pacman x86_64
+#   arm64 → deb arm64   / rpm aarch64 / pacman aarch64
+#   armv7 → deb armhf   / rpm armv7hl / pacman armv7h
+#
+# 不产出 386 —— 详见 builds.targets。
+# ═══════════════════════════════════════════════════════════════════════════
+
+version: 2
+
+project_name: webux
+
+# build/ 已被 .gitignore 忽略, 因此 dist 放在里面不会污染工作区。
+dist: build/dist
+
+# 仓库历史到 v0.1.0 为止没有可用的规范化提交信息, 且本次迁移本身不需要
+# 生成 changelog —— 直接用 git log 会产出噪音。发布说明改为手工维护。
+changelog:
+  disable: true
+
+# 前端必须先构建: cmd/webux 用 //go:embed 嵌入 cmd/webux/dist, 而该目录由
+# `mise run web-ci` 生成 (nub ci + nub run build + 同步到 cmd/webux/dist)。
+# 刻意复用 mise 任务而不在这里内联一份命令, 避免出现两套前端构建逻辑 ——
+# 这样 `mise run release`、`mise run ci` 与本地调试走的是同一条链路。
+# (before.hooks 的元素类型是 []string, 所以一条命令就够了。)
+before:
+  hooks:
+    - mise run web-ci
+
+builds:
+  - id: webux
+    main: ./cmd/webux
+    # 关键: 二进制带路径构建。
+    #   * 安装树归档里它就会落在 usr/local/bin/webux —— 与旧 fpm tar 产物一致,
+    #     且不需要在归档里再放一份副本 (否则归档体积翻倍)。
+    #   * 纯二进制归档用 strip_binary_directory: true 把它压回根目录的 webux。
+    binary: usr/local/bin/webux
+
+    env:
+      - CGO_ENABLED=0
+
+    flags:
+      - -trimpath
+
+    # mysql / postgres 驱动默认编入。
+    # 之前 Makefile 的 TAGS 默认为空, 而 package 依赖 release → 此前发布的
+    # deb/rpm/pacman 里其实**不含**这两个驱动: internal/system/databases/
+    # mysql_stub.go (//go:build !mysql) 会让 connectMySQL 直接返回
+    # ErrDriverNotCompiled (只能探测实例、不能执行查询)。
+    # 这是本次迁移附带的行为变更, 需要在发布说明里写明。
+    tags:
+      - mysql
+      - postgres
+
+    # 让二进制内部的时间戳可复现 (与 build/ 下的手工构建保持一致)。
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+    ldflags:
+      - -s
+      - -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
+
+    # 只做 linux。不产出 386 (i386/i686) —— 目标平台里没有它,
+    # scripts/install.sh 的 detect_arch() 也已同步移除该分支。
+    # linux_arm_7 → GOARM=7 → 上游即 armv7 (原 release-armv7 目标)。
+    targets:
+      - linux_amd64_v1
+      - linux_arm64
+      - linux_arm_7
+
+# ── tarball ────────────────────────────────────────────────────────────────
+archives:
+  # 1) 安装树 —— 主产物, 拿"素名"。
+  #    布局与旧 fpm `-t tar --prefix /` 产物逐字一致, 可直接:
+  #        sudo tar -xzf webux_<ver>_linux_<arch>.tar.gz -C /
+  #    usr/local/bin/webux             ← 由 builds.binary 带路径自动带入
+  #    etc/systemd/system/webux.service
+  #    etc/init.d/webux
+  #    etc/webux/config.yaml
+  #    usr/local/share/webux/install.sh
+  - id: installer
+    ids:
+      - webux
+    formats:
+      - tar.gz
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}
+    # wrap_in_directory 默认 false —— 保留 etc/ usr/ 的根相对结构。
+    # 归档内一律 root:root 且 mtime 取提交时间, 与旧 fpm 产物一致,
+    # 这样 sudo tar -xzf ... -C / 展开后的属主/时间戳是确定的。
+    builds_info:
+      owner: root
+      group: root
+      mtime: "{{ .CommitDate }}"
+    # ⚠️ 单个文件必须配 strip_parent: true, 否则 dst 会被当成"文件的完整目标路径"。
+    #
+    # goreleaser 的 archivefiles.Eval() 对**已存在的精确路径**不做 glob 展开,
+    # 于是 prefix 就等于 src 自身, filepath.Rel 得 "."，dst 被折叠成目录名
+    # （官方测试 TestArchive_globbing/"exact src file with dst" 断言的就是这个:
+    # src=testdata/a/a.txt + dst=foo/ → 归档里只有一个叫 foo 的**文件**）。
+    # 加上 strip_parent 后 destinationFor 改走 Join(dst, Base(src)) 分支,
+    # 才会得到 etc/systemd/system/webux.service 这样的路径。
+    files:
+      - src: scripts/webux.service
+        dst: etc/systemd/system
+        strip_parent: true
+        info:
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      # OpenRC 要求 init 脚本的文件名等于服务名, 所以这里必须落地为
+      # etc/init.d/webux —— 源文件名 webux.initd 不能留到目标里。
+      # 刻意**不**加 strip_parent: 那会让它变成 etc/init.d/webux.initd。
+      # 不加时 dst 恰好被当作字面目标路径 (即上面那条规则的正面用法)。
+      - src: scripts/webux.initd
+        dst: etc/init.d/webux
+        info:
+          owner: root
+          group: root
+          mode: 0755
+          mtime: "{{ .CommitDate }}"
+      - src: scripts/config.yaml
+        dst: etc/webux
+        strip_parent: true
+        info:
+          owner: root
+          group: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: scripts/install.sh
+        dst: usr/local/share/webux
+        strip_parent: true
+        info:
+          owner: root
+          group: root
+          mode: 0755
+          mtime: "{{ .CommitDate }}"
+
+  # 2) 纯二进制 —— 给"只要一个可执行文件"的场景, 加 _bin 后缀以区分。
+  #    strip_binary_directory 把 usr/local/bin/webux 压回根目录的 webux。
+  #    files: [none*] 是官方推荐的"只要二进制"写法 —— files 为空时
+  #    goreleaser 会自动吞入 license*/readme*/changelog* 等 glob,
+  #    而本仓库的 README.md 曾是残缺文件, 不能进归档。
+  - id: binary
+    ids:
+      - webux
+    formats:
+      - tar.gz
+    strip_binary_directory: true
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}_bin
+    builds_info:
+      owner: root
+      group: root
+      mtime: "{{ .CommitDate }}"
+    files:
+      - none*
+
+# ── 系统包 ─────────────────────────────────────────────────────────────────
+nfpms:
+  - id: webux
+    package_name: webux
+
+    # 方案 B: 输出各发行版惯例的文件名, 与旧 fpm 产物逐字一致。
+    #   webux_0.1.0_amd64.deb
+    #   webux-0.1.0-1.x86_64.rpm
+    #   webux-0.1.0-1-x86_64.pkg.tar.zst
+    # (goreleaser 的默认值是 {{ .PackageName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }},
+    #  即 webux_0.1.0_linux_amd64.deb —— 不符合任何发行版惯例, 故不用。)
+    file_name_template: "{{ .ConventionalFileName }}"
+
+    formats:
+      - deb
+      - rpm
+      - archlinux
+
+    # ⚠️ 必须是 "/" 而不是 "/usr/local/bin"。
+    # nfpm 把目标路径拼成 filepath.Join(bindir, <二进制的完整名称>), 而上面的
+    # builds.binary 是 "usr/local/bin/webux"。若 bindir 写 /usr/local/bin,
+    # 实测会得到 /usr/local/bin/usr/local/bin/webux 这个重复嵌套的路径
+    # (dpkg-deb -c 可直接看到)。bindir=/ 时结果正好是 /usr/local/bin/webux。
+    bindir: /
+
+    # 本仓库是 brendan4linux/webux 的 fork, 且按独立项目维护 (不向上游提 PR),
+    # 因此包元数据指向 fork 自身。
+    vendor: Webux
+    homepage: https://github.com/sincerely-hello-world/webux
+    maintainer: sincerely-hello-world <sincerely.hello.world@gmail.com>
+    description: |-
+      Webux Linux Management Panel
+    license: AGPL-3.0
+    section: admin
+    priority: optional
+
+    contents:
+      # type config|noreplace:
+      #   deb       → 写入 conffiles (dpkg 升级时保留管理员改动)
+      #   rpm       → %config(noreplace)  (FILEFLAGS = 17)
+      #   archlinux → .PKGINFO 的 backup =
+      # 旧 fpm 用 --config-files 表达同一语义。注意不能只写 type: config,
+      # 那样 rpm 得到的是 %config (FILEFLAGS = 1)。
+      - src: scripts/config.yaml
+        dst: /etc/webux/config.yaml
+        type: config|noreplace
+
+      # deb 用 --deb-systemd 时 unit 由 debhelper 片段处理; 现在统一作为
+      # 普通文件安装到 /usr/lib/systemd/system/, 并由 pkg-postinstall.sh
+      # 负责 daemon-reload + enable + restart, 三种格式行为一致。
+      - src: scripts/webux.service
+        dst: /usr/lib/systemd/system/webux.service
+
+    scripts:
+      postinstall: scripts/pkg-postinstall.sh
+      postremove: scripts/pkg-postremove.sh
+
+    overrides:
+      deb:
+        dependencies:
+          - libxcrypt2 | libcrypt1 | libc6
+
+      rpm:
+        dependencies:
+          - libxcrypt
+
+      # ⚠️ overrides 是**整字段替换**而非深合并, 所以这里必须把两个 key 都写全,
+      # 否则未列出的脚本会退回顶层默认值。
+      #
+      # postremove 用专门的 pacman 脚本, 原因:
+      # nfpm 的 archlinux 后端把每个脚本写成 .INSTALL 里的**同名 shell 函数**
+      # (function post_remove() { ...脚本全文... }, 文件权限 0644),
+      # 由 pacman source 后按函数名调用 —— 因此 $1 **不是** deb/rpm 那套
+      # remove|purge|0。scripts/pkg-postremove.sh 的 $1 守卫会把无法识别的
+      # 取值判成"升级、不动服务", 在 pacman 下会静默跳过 stop/disable。
+      archlinux:
+        scripts:
+          postinstall: scripts/pkg-postinstall.sh
+          postremove: scripts/pkg-postremove-pacman.sh
+
+    rpm:
+      group: Applications/System
+
+    # pacman 专有的 upgrade 钩子。注意它**不在** overrides 里 ——
+    # preupgrade/postupgrade 属于格式专属段 (与 deb:/rpm: 平级),
+    # 而 overrides.*.scripts 只接收可覆写的 preinstall/postinstall/
+    # preremove/postremove 四个 key。
+    # 作用: pacman 升级后也 enable + 重启, 与 deb/rpm 的 postinst / %post 对齐。
+    archlinux:
+      # 与 maintainer 保持一致 —— nfpm 不会自动回退, 不设就是 "Unknown Packager"。
+      packager: sincerely-hello-world <sincerely.hello.world@gmail.com>
+      scripts:
+        postupgrade: scripts/pkg-postinstall.sh
+
+# ── checksums ──────────────────────────────────────────────────────────────
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+# ── release ────────────────────────────────────────────────────────────────
+# 把安装脚本也作为 Release 资产单独发布, 这样文档里给出的
+#   .../releases/latest/download/install.sh
+# 才真的能下载 —— 它与 archives 里打进安装树 tar.gz 的是同一份文件。
+# goreleaser 默认只上传 dist 里的产物, 不会自动带上仓库里的脚本。
+# 只在真正的 `goreleaser release` 时生效; 快照模式下不会写进 build/dist。
+release:
+  extra_files:
+    - glob: scripts/install.sh
+
+# ── snapshot ───────────────────────────────────────────────────────────────
+# `mise run snapshot` 的本地演练产物。它**不是**发布版, 但产物名不该带
+# "snapshot" 这种自造词 —— 发行版惯例是"正式版本号 + 短提交号", 中间用分隔符隔开。
+#
+# goreleaser 的内置默认值是 `{{ incpatch .Version }}-SNAPSHOT-<sha>`, 会把大写
+# SNAPSHOT 留在每个文件名里; 这里改成:
+#
+#   {{ incpatch .Version }}.{{ .ShortCommit }}        →  0.1.2.<short-sha>
+#
+# ⚠️ 前半段的数字取自 `incpatch(最近的可达 tag)`, 所以它**跟着 tag 走**:
+#    仓库里最近的 tag 是 v0.1.1 → .Version = 0.1.1 → incpatch 得 0.1.2。
+#    (打 v0.1.1 之前, 最近可达 tag 是 v0.1.0, 那时快照号是 0.1.1。<sha>。)
+#
+# 各格式实际落地 (均为 `goreleaser release --snapshot` 实测, exit=0;
+# 下例以当前 tag 为 v0.1.1 时的 0.1.2.<sha> 为例):
+#   tar.gz  webux_0.1.2.<sha>_linux_amd64.tar.gz
+#   deb     webux_0.1.2.<sha>_amd64.deb                Version: 0.1.2.<sha>
+#   rpm     webux-0.1.2.<sha>-1.x86_64.rpm             VERSION=0.1.2.<sha>
+#   pacman  webux-0.1.2.<sha>-1-x86_64.pkg.tar.zst     pkgver=0.1.2.<sha>-1
+#
+# 分隔符为什么是 `.` 而不是 `_` 或 `-` —— 三种都实测过, 只有 `.` 三方通吃:
+#
+#   `_`  ❌ **deb 直接不可安装**。dpkg 拒绝解析控制文件:
+#         dpkg-deb: 错误: ... 'Version' 字段值 '0.1.1_30f6222': 版本号含无效字符
+#         (rpm 和 pacman 反而能接受 `_`, 但 deb 是主要分发渠道, 一票否决。)
+#   `-`  ⚠️ 可用但会被 nfpm 改写: deb/rpm 里 `-` 变成 `~`, 而 pacman 的 pkgver
+#         不允许 `-`/`~`, nfpm 会把它们**直接删掉** —— pacman 得到
+#         `0.1.2<sha>`, 两段数字粘成一个数。必须靠额外的 `g` 之类字母兜底,
+#         例如历史上用过的 `0.1.1~g30f6222` / `0.1.1g30f6222`。
+#   `.`  ✅ 是 deb/rpm/pacman 三者版本号的合法字符, 因此**文件名与元数据
+#         完全一致**, 不需要任何兜底前缀。deb 的文件名也正好回到 Debian 规范的
+#         `<name>_<version>_<arch>.deb` 形式。
+#
+# ⚠️ `.` 的代价: 排序上 `0.1.2.<sha>` **高于** `0.1.2` (而 `~` 是低于)。
+# 若同一 apt 仓库里同时存在快照与对应正式版, 快照会被视为可升级版本。因为
+# 快照只用于本地演练、不进入任何仓库, 这个代价可以接受; 但**不要把快照上传到
+# 正式 apt 仓库**。
+#
+# incpatch: .Version 来自最近的可达 tag (v0.1.1 → 0.1.1), incpatch 得到 0.1.2
+# —— 即"正在开发的下一版"。
+snapshot:
+  version_template: "{{ incpatch .Version }}.{{ .ShortCommit }}"

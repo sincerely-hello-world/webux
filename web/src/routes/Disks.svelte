@@ -335,7 +335,7 @@
     {/each}
 
     <!-- ── Non-LVM Mounts ─────────────────────────────────────────── -->
-    {#if (summary.mounts ?? []).filter(m => !(summary.volume_groups ?? []).some(vg => vg.volumes.some(lv => lv.mountpoint === m.mountpoint))).length > 0}
+    {#if (summary.mounts ?? []).filter(m => !(summary?.volume_groups ?? []).some(vg => vg.volumes.some(lv => lv.mountpoint === m.mountpoint))).length > 0}
       <h2 class="section-heading" style="margin-top:1.25rem">Other Mounts</h2>
       <div class="card" style="padding:0">
         <table class="data-table">
@@ -343,7 +343,7 @@
             <tr><th>Mount point</th><th>Device</th><th>FS</th><th>Size</th><th>Used</th><th style="min-width:120px">Usage</th><th></th></tr>
           </thead>
           <tbody>
-            {#each (summary.mounts ?? []).filter(m => !(summary.volume_groups ?? []).some(vg => vg.volumes.some(lv => lv.mountpoint === m.mountpoint))) as m (m.mountpoint)}
+            {#each (summary.mounts ?? []).filter(m => !(summary?.volume_groups ?? []).some(vg => vg.volumes.some(lv => lv.mountpoint === m.mountpoint))) as m (m.mountpoint)}
               <tr class:row-active={usageMount === m.mountpoint}>
                 <td class="mono" style="font-weight:600">{m.mountpoint}</td>
                 <td class="mono" style="font-size:0.75rem;color:var(--text-secondary);max-width:160px;overflow:hidden;text-overflow:ellipsis">{m.device}</td>

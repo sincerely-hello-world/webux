@@ -23,11 +23,11 @@ const (
 
 // Rule represents a single firewall rule in a normalised form.
 type Rule struct {
-	ID       string `json:"id"`        // rule number or nft handle
-	Chain    string `json:"chain"`     // INPUT, OUTPUT, FORWARD, or nft chain name
-	Table    string `json:"table"`     // filter, nat, mangle (iptables) or nft table
-	Action   string `json:"action"`    // ACCEPT, DROP, REJECT, allow, deny
-	Protocol string `json:"protocol"`  // tcp, udp, any
+	ID       string `json:"id"`       // rule number or nft handle
+	Chain    string `json:"chain"`    // INPUT, OUTPUT, FORWARD, or nft chain name
+	Table    string `json:"table"`    // filter, nat, mangle (iptables) or nft table
+	Action   string `json:"action"`   // ACCEPT, DROP, REJECT, allow, deny
+	Protocol string `json:"protocol"` // tcp, udp, any
 	SrcIP    string `json:"src_ip"`
 	DstIP    string `json:"dst_ip"`
 	Port     string `json:"port"`
@@ -351,10 +351,10 @@ func parseNFTRules(lines []string) []Rule {
 }
 
 var (
-	nftIdentRe         = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
-	nftPortRe          = regexp.MustCompile(`^\d{1,5}(-\d{1,5})?$`)
-	nftAllowedActions  = map[string]bool{"accept": true, "drop": true, "reject": true}
-	nftAllowedProtos   = map[string]bool{"tcp": true, "udp": true, "ip": true, "ip6": true, "inet": true}
+	nftIdentRe        = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,64}$`)
+	nftPortRe         = regexp.MustCompile(`^\d{1,5}(-\d{1,5})?$`)
+	nftAllowedActions = map[string]bool{"accept": true, "drop": true, "reject": true}
+	nftAllowedProtos  = map[string]bool{"tcp": true, "udp": true, "ip": true, "ip6": true, "inet": true}
 )
 
 func (m *Manager) nftAdd(rule Rule) (string, error) {

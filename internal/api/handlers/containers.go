@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/brendan4linux/webux/internal/learn"
 	"github.com/brendan4linux/webux/internal/system/containers"
+	"github.com/go-chi/chi/v5"
 )
 
 // ContainersHandler manages Docker and Podman containers.

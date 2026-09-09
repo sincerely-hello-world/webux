@@ -16,7 +16,11 @@ func isRamDevice(name string) bool {
 
 // shouldShowDevice returns true if the device is worth showing to the user.
 func shouldShowDevice(d BlockDevice) bool {
-	if isLoopDevice(d.Name) { return false }
-	if isRamDevice(d.Name)  { return false }
+	if isLoopDevice(d.Name) {
+		return false
+	}
+	if isRamDevice(d.Name) {
+		return false
+	}
 	return true
 }

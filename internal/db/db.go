@@ -41,7 +41,24 @@ var migration010 string
 
 // Open opens (or creates) the Webux SQLite database.
 func Open(path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite3", path+"?_journal=WAL&_timeout=5000&_fk=true")
+	// The driver is github.com/ncruces/go-sqlite3, whose DSN syntax is NOT
+	// mattn/go-sqlite3's: it only reads options when the name starts with
+	// "file:", and PRAGMAs are spelled _pragma=name(value).
+	//
+	// The previous DSN used mattn's "_journal/_timeout/_fk" parameters, which
+	// this driver does not recognise at all. They were silently taken as part
+	// of the file name, so it created a literal "webux.db?_journal=WAL&..."
+	// file and WAL, the busy timeout and foreign key enforcement were never
+	// actually enabled — with no error to show for it.
+	//
+	// PRAGMA order matters: busy_timeout and the locking-mode pragmas must be
+	// applied first (see the driver documentation).
+	dsn := "file:" + path +
+		"?_pragma=busy_timeout(5000)" +
+		"&_pragma=journal_mode(WAL)" +
+		"&_pragma=foreign_keys(1)"
+
+	db, err := sql.Open("sqlite3", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}

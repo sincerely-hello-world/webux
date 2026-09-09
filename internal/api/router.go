@@ -3,11 +3,11 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"io/fs"
 	"net/http"
 	"strings"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/brendan4linux/webux/internal/api/handlers"
 	"github.com/brendan4linux/webux/internal/auth"
@@ -40,7 +40,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(func(next http.Handler) http.Handler {
-    compress := middleware.Compress(5)
+		compress := middleware.Compress(5)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/ws") ||
 				strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
@@ -257,7 +257,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 			writeJSON(w, map[string]interface{}{"port": port})
 		})
 		r.Put("/settings/server", func(w http.ResponseWriter, r *http.Request) {
-			var body struct{ Port string `json:"port"` }
+			var body struct {
+				Port string `json:"port"`
+			}
 			json.NewDecoder(r.Body).Decode(&body)
 			if body.Port != "" {
 				cfg.DB.Exec(`INSERT INTO webux_settings (key,value) VALUES ('server.port',?)
@@ -271,7 +273,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 			writeJSON(w, map[string]interface{}{"bypass_token": token})
 		})
 		r.Put("/settings/auth", func(w http.ResponseWriter, r *http.Request) {
-			var body struct{ BypassToken string `json:"bypass_token"` }
+			var body struct {
+				BypassToken string `json:"bypass_token"`
+			}
 			json.NewDecoder(r.Body).Decode(&body)
 			cfg.DB.Exec(`INSERT INTO webux_settings (key,value) VALUES ('auth.bypass_token',?)
 				ON CONFLICT(key) DO UPDATE SET value=excluded.value`, body.BypassToken)

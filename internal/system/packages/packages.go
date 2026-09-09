@@ -18,23 +18,23 @@ import (
 type Family string
 
 const (
-	FamilyPacman Family = "pacman" // Arch, Manjaro, EndeavourOS
-	FamilyApt    Family = "apt"    // Debian, Ubuntu, Mint, Pop!_OS
-	FamilyDNF    Family = "dnf"    // Fedora, RHEL 8+, CentOS Stream
-	FamilyYum    Family = "yum"    // RHEL 7, older CentOS
+	FamilyPacman  Family = "pacman" // Arch, Manjaro, EndeavourOS
+	FamilyApt     Family = "apt"    // Debian, Ubuntu, Mint, Pop!_OS
+	FamilyDNF     Family = "dnf"    // Fedora, RHEL 8+, CentOS Stream
+	FamilyYum     Family = "yum"    // RHEL 7, older CentOS
 	FamilyUnknown Family = "unknown"
 )
 
 // Package is an installed or available package.
 type Package struct {
-	Name        string    `json:"name"`
-	Version     string    `json:"version"`
-	NewVersion  string    `json:"new_version,omitempty"` // set if upgrade available
-	Description string    `json:"description"`
-	Size        string    `json:"size,omitempty"`
-	Repo        string    `json:"repo,omitempty"`
-	Installed   bool      `json:"installed"`
-	Upgradable  bool      `json:"upgradable"`
+	Name        string     `json:"name"`
+	Version     string     `json:"version"`
+	NewVersion  string     `json:"new_version,omitempty"` // set if upgrade available
+	Description string     `json:"description"`
+	Size        string     `json:"size,omitempty"`
+	Repo        string     `json:"repo,omitempty"`
+	Installed   bool       `json:"installed"`
+	Upgradable  bool       `json:"upgradable"`
 	InstallDate *time.Time `json:"install_date,omitempty"`
 }
 
@@ -567,10 +567,18 @@ func parseFlatpakColumns(out string) []FlatpakApp {
 			Name:  strings.TrimSpace(parts[0]),
 			AppID: strings.TrimSpace(parts[1]),
 		}
-		if len(parts) >= 3 { app.Version = strings.TrimSpace(parts[2]) }
-		if len(parts) >= 4 { app.Branch  = strings.TrimSpace(parts[3]) }
-		if len(parts) >= 5 { app.Origin  = strings.TrimSpace(parts[4]) }
-		if len(parts) >= 6 { app.InstallType = strings.TrimSpace(parts[5]) }
+		if len(parts) >= 3 {
+			app.Version = strings.TrimSpace(parts[2])
+		}
+		if len(parts) >= 4 {
+			app.Branch = strings.TrimSpace(parts[3])
+		}
+		if len(parts) >= 5 {
+			app.Origin = strings.TrimSpace(parts[4])
+		}
+		if len(parts) >= 6 {
+			app.InstallType = strings.TrimSpace(parts[5])
+		}
 		if app.AppID != "" {
 			apps = append(apps, app)
 		}
@@ -598,8 +606,12 @@ func parseFlatpakPlain(out string) []FlatpakApp {
 			Name:  strings.TrimSpace(parts[0]),
 			AppID: strings.TrimSpace(parts[1]),
 		}
-		if len(parts) >= 3 { app.Version = strings.TrimSpace(parts[2]) }
-		if len(parts) >= 4 { app.Branch  = strings.TrimSpace(parts[3]) }
+		if len(parts) >= 3 {
+			app.Version = strings.TrimSpace(parts[2])
+		}
+		if len(parts) >= 4 {
+			app.Branch = strings.TrimSpace(parts[3])
+		}
 		apps = append(apps, app)
 	}
 	return apps

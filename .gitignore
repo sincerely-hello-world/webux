@@ -1,27 +1,73 @@
-# Build outputs — never commit binaries or packages
+# ──────────────────────────────────────────────────────────────────
+# Webux — .gitignore
+#
+# 前端依赖锁定策略: 本项目采用 nub 管理前端包, 仅提交 web/nub.lock。
+# 其它包管理器 (npm/yarn/pnpm) 的锁文件一律不提交。
+# ──────────────────────────────────────────────────────────────────
+
+# ── 构建产物 (二进制/安装包绝不入库) ───────────────────────────────
 build/
+*.deb
+*.rpm
+*.tar.gz
+*.sha256
 
-# Frontend build outputs (embedded into Go binary at build time)
-web/dist/
-cmd/webux/dist/
-
-# Node
-web/node_modules/
-
-# Go tool cache
+# ── Go ────────────────────────────────────────────────────────────
+# 编译产物与测试缓存
 *.test
 *.out
+*.prof
+coverage.out
+# 根目录下误放的可执行文件 (锚定根, 避免误伤 cmd/webux/ 等目录)
+/webux
+/webux-*
 
-# Editor
+# ── Air 热重载临时目录 (见 .air.toml tmp_dir) ─────────────────────
+.air/
+
+# ── 前端 (web/) ───────────────────────────────────────────────────
+# 依赖目录 (nub install 生成; node-linker=hoisted)
+web/node_modules/
+# 前端构建产物 (构建时同步至 cmd/webux/dist 并嵌入二进制)
+web/dist/
+cmd/webux/dist/
+# 其它包管理器锁文件 — 本项目统一用 web/nub.lock
+web/package-lock.json
+web/yarn.lock
+web/pnpm-lock.yaml
+# SvelteKit 缓存 (若将来启用 adapter)
+web/.svelte-kit/
+# Vite 等工具的本地缓存
+*.local
+
+# ── 环境变量与密钥 (绝不入库) ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+
+# ── 日志 ──────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── 本地运行数据 (含 SQLite) ──────────────────────────────────────
+/tmp/webux-data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# ── 编辑器 / IDE ──────────────────────────────────────────────────
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
-# OS
+# ── 操作系统 ──────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
-
-# Dev data dirs
-/tmp/webux-data/
-*.db

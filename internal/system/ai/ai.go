@@ -21,26 +21,26 @@ import (
 type Provider string
 
 const (
-	ProviderOllama     Provider = "ollama"
-	ProviderOpenAI     Provider = "openai"
-	ProviderAnthropic  Provider = "anthropic"
-	ProviderCustom     Provider = "custom"
+	ProviderOllama    Provider = "ollama"
+	ProviderOpenAI    Provider = "openai"
+	ProviderAnthropic Provider = "anthropic"
+	ProviderCustom    Provider = "custom"
 )
 
 // Config holds all settings for the AI assistant.
 type Config struct {
-	Provider    Provider `json:"provider"`
-	OllamaURL   string   `json:"ollama_url"`   // e.g. http://localhost:11434
-	OllamaModel string   `json:"ollama_model"` // e.g. llama3.2:3b
-	APIKey      string   `json:"api_key"`      // for cloud providers
-	BaseURL     string   `json:"base_url"`     // custom endpoint
-	Model       string   `json:"model"`        // for cloud providers
-	SystemPrompt string  `json:"system_prompt"`
+	Provider     Provider `json:"provider"`
+	OllamaURL    string   `json:"ollama_url"`   // e.g. http://localhost:11434
+	OllamaModel  string   `json:"ollama_model"` // e.g. llama3.2:3b
+	APIKey       string   `json:"api_key"`      // for cloud providers
+	BaseURL      string   `json:"base_url"`     // custom endpoint
+	Model        string   `json:"model"`        // for cloud providers
+	SystemPrompt string   `json:"system_prompt"`
 }
 
 // Message is a single chat turn.
 type Message struct {
-	Role    string `json:"role"`    // system | user | assistant
+	Role    string `json:"role"` // system | user | assistant
 	Content string `json:"content"`
 }
 
@@ -58,8 +58,8 @@ type OllamaModel struct {
 
 // Client is the AI assistant backend.
 type Client struct {
-	cfg    Config
-	http   *http.Client
+	cfg  Config
+	http *http.Client
 }
 
 var ssrfBlockedCIDRs []*net.IPNet
@@ -460,12 +460,12 @@ func RecommendedModels() []struct {
 		RAM         string `json:"ram"`
 		Good        string `json:"good_for"`
 	}{
-		{"llama3.2:3b",    "Llama 3.2 3B — fast and lightweight",      "4 GB",  "Quick answers, low-RAM servers"},
-		{"llama3.2:1b",    "Llama 3.2 1B — very fast, minimal RAM",     "2 GB",  "Minimal hardware, quick responses"},
-		{"qwen2.5:7b",     "Qwen 2.5 7B — strong reasoning",            "8 GB",  "Better analysis and code help"},
-		{"qwen2.5:14b",    "Qwen 2.5 14B — high quality",               "16 GB", "Complex troubleshooting"},
-		{"mistral:7b",     "Mistral 7B — well-rounded",                  "8 GB",  "General sysadmin tasks"},
-		{"phi4:14b",       "Phi-4 14B — Microsoft research model",       "16 GB", "Technical depth"},
-		{"gemma3:4b",      "Gemma 3 4B — Google, efficient",             "6 GB",  "Balanced performance"},
+		{"llama3.2:3b", "Llama 3.2 3B — fast and lightweight", "4 GB", "Quick answers, low-RAM servers"},
+		{"llama3.2:1b", "Llama 3.2 1B — very fast, minimal RAM", "2 GB", "Minimal hardware, quick responses"},
+		{"qwen2.5:7b", "Qwen 2.5 7B — strong reasoning", "8 GB", "Better analysis and code help"},
+		{"qwen2.5:14b", "Qwen 2.5 14B — high quality", "16 GB", "Complex troubleshooting"},
+		{"mistral:7b", "Mistral 7B — well-rounded", "8 GB", "General sysadmin tasks"},
+		{"phi4:14b", "Phi-4 14B — Microsoft research model", "16 GB", "Technical depth"},
+		{"gemma3:4b", "Gemma 3 4B — Google, efficient", "6 GB", "Balanced performance"},
 	}
 }

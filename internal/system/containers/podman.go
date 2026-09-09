@@ -20,6 +20,7 @@ import (
 type Podman struct {
 	client     *http.Client
 	socketPath string
+	apiVer     string // URL prefix such as "v4.0.0" — negotiated in NewPodman
 }
 
 // NewPodman returns a Podman runtime if a socket is accessible.
@@ -36,12 +37,17 @@ func NewPodman() *Podman {
 		},
 		Timeout: 30 * time.Second,
 	}
-	p := &Podman{client: client, socketPath: socket}
+	p := &Podman{client: client, socketPath: socket, apiVer: podmanFallbackVersion}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := p.Ping(ctx); err != nil {
 		return nil
 	}
+	// Best effort: Podman also serves the Docker-compatible /_ping endpoint. Adopt the
+	// version it advertises only if it is Docker-compatible — Podman reports its own
+	// native version on some builds, which is not a valid prefix for the endpoints
+	// used here — otherwise keep the fallback prefix this package has always used.
+	p.apiVer = negotiateAPIVersion(ctx, p.client, "podman", podmanFallbackVersion, isDockerCompatVersion)
 	return p
 }
 
@@ -70,7 +76,7 @@ func findPodmanSocket() string {
 func (p *Podman) Name() string { return "podman" }
 
 func (p *Podman) url(path string) string {
-	return "http://localhost/v4.0.0" + path
+	return socketBaseURL + "/" + p.apiVer + path
 }
 
 func (p *Podman) get(ctx context.Context, path string, out interface{}) error {
@@ -124,17 +130,12 @@ func (p *Podman) delete(ctx context.Context, path string) error {
 	return nil
 }
 
+// Ping probes Podman's native /libpod/_ping endpoint. It deliberately uses a fixed
+// known-good version prefix rather than the negotiated one, so liveness detection
+// never depends on version negotiation having succeeded.
 func (p *Podman) Ping(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", p.url("/libpod/_ping"), nil)
-	if err != nil {
-		return err
-	}
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return nil
+	_, err := pingDaemon(ctx, p.client, socketBaseURL+"/"+podmanFallbackVersion+"/libpod/_ping")
+	return err
 }
 
 // Podman container list uses the same Docker-compatible endpoint

@@ -52,34 +52,61 @@ func sha512Crypt(password, setting string) (string, error) {
 	sa := []byte(salt)
 
 	dB := sha512.New()
-	dB.Write(pw); dB.Write(sa); dB.Write(pw)
+	dB.Write(pw)
+	dB.Write(sa)
+	dB.Write(pw)
 	sumB := dB.Sum(nil)
 
 	dA := sha512.New()
-	dA.Write(pw); dA.Write(sa)
+	dA.Write(pw)
+	dA.Write(sa)
 	for i := len(pw); i > 0; i -= 64 {
-		if i >= 64 { dA.Write(sumB) } else { dA.Write(sumB[:i]) }
+		if i >= 64 {
+			dA.Write(sumB)
+		} else {
+			dA.Write(sumB[:i])
+		}
 	}
 	for i := len(pw); i > 0; i >>= 1 {
-		if i&1 != 0 { dA.Write(sumB) } else { dA.Write(pw) }
+		if i&1 != 0 {
+			dA.Write(sumB)
+		} else {
+			dA.Write(pw)
+		}
 	}
 	sumA := dA.Sum(nil)
 
 	dP := sha512.New()
-	for i := 0; i < len(pw); i++ { dP.Write(pw) }
+	for i := 0; i < len(pw); i++ {
+		dP.Write(pw)
+	}
 	p := repeatBytes(dP.Sum(nil), len(pw))
 
 	dS := sha512.New()
-	for i := 0; i < 16+int(sumA[0]); i++ { dS.Write(sa) }
+	for i := 0; i < 16+int(sumA[0]); i++ {
+		dS.Write(sa)
+	}
 	s := repeatBytes(dS.Sum(nil), len(sa))
 
 	c := sumA
 	for i := 0; i < rounds; i++ {
 		dC := sha512.New()
-		if i&1 != 0 { dC.Write(p) } else { dC.Write(c) }
-		if i%3 != 0 { dC.Write(s) }
-		if i%7 != 0 { dC.Write(p) }
-		if i&1 != 0 { dC.Write(c) } else { dC.Write(p) }
+		if i&1 != 0 {
+			dC.Write(p)
+		} else {
+			dC.Write(c)
+		}
+		if i%3 != 0 {
+			dC.Write(s)
+		}
+		if i%7 != 0 {
+			dC.Write(p)
+		}
+		if i&1 != 0 {
+			dC.Write(c)
+		} else {
+			dC.Write(p)
+		}
 		c = dC.Sum(nil)
 	}
 
@@ -119,34 +146,61 @@ func sha256Crypt(password, setting string) (string, error) {
 	sa := []byte(salt)
 
 	dB := sha256.New()
-	dB.Write(pw); dB.Write(sa); dB.Write(pw)
+	dB.Write(pw)
+	dB.Write(sa)
+	dB.Write(pw)
 	sumB := dB.Sum(nil)
 
 	dA := sha256.New()
-	dA.Write(pw); dA.Write(sa)
+	dA.Write(pw)
+	dA.Write(sa)
 	for i := len(pw); i > 0; i -= 32 {
-		if i >= 32 { dA.Write(sumB) } else { dA.Write(sumB[:i]) }
+		if i >= 32 {
+			dA.Write(sumB)
+		} else {
+			dA.Write(sumB[:i])
+		}
 	}
 	for i := len(pw); i > 0; i >>= 1 {
-		if i&1 != 0 { dA.Write(sumB) } else { dA.Write(pw) }
+		if i&1 != 0 {
+			dA.Write(sumB)
+		} else {
+			dA.Write(pw)
+		}
 	}
 	sumA := dA.Sum(nil)
 
 	dP := sha256.New()
-	for i := 0; i < len(pw); i++ { dP.Write(pw) }
+	for i := 0; i < len(pw); i++ {
+		dP.Write(pw)
+	}
 	p := repeatBytes(dP.Sum(nil), len(pw))
 
 	dS := sha256.New()
-	for i := 0; i < 16+int(sumA[0]); i++ { dS.Write(sa) }
+	for i := 0; i < 16+int(sumA[0]); i++ {
+		dS.Write(sa)
+	}
 	s := repeatBytes(dS.Sum(nil), len(sa))
 
 	c := sumA
 	for i := 0; i < rounds; i++ {
 		dC := sha256.New()
-		if i&1 != 0 { dC.Write(p) } else { dC.Write(c) }
-		if i%3 != 0 { dC.Write(s) }
-		if i%7 != 0 { dC.Write(p) }
-		if i&1 != 0 { dC.Write(c) } else { dC.Write(p) }
+		if i&1 != 0 {
+			dC.Write(p)
+		} else {
+			dC.Write(c)
+		}
+		if i%3 != 0 {
+			dC.Write(s)
+		}
+		if i%7 != 0 {
+			dC.Write(p)
+		}
+		if i&1 != 0 {
+			dC.Write(c)
+		} else {
+			dC.Write(p)
+		}
 		c = dC.Sum(nil)
 	}
 
@@ -171,12 +225,16 @@ func sha256Crypt(password, setting string) (string, error) {
 
 func md5Crypt(password, setting string) (string, error) {
 	salt, _ := parseCryptSetting(setting, "$1$")
-	if len(salt) > 8 { salt = salt[:8] }
+	if len(salt) > 8 {
+		salt = salt[:8]
+	}
 	pw := []byte(password)
 	sa := []byte(salt)
 
 	dB := md5.New()
-	dB.Write(pw); dB.Write(sa); dB.Write(pw)
+	dB.Write(pw)
+	dB.Write(sa)
+	dB.Write(pw)
 	sumB := dB.Sum(nil)
 
 	dA := md5.New()
@@ -184,20 +242,40 @@ func md5Crypt(password, setting string) (string, error) {
 	dA.Write([]byte("$1$"))
 	dA.Write(sa)
 	for i := len(pw); i > 0; i -= 16 {
-		if i >= 16 { dA.Write(sumB) } else { dA.Write(sumB[:i]) }
+		if i >= 16 {
+			dA.Write(sumB)
+		} else {
+			dA.Write(sumB[:i])
+		}
 	}
 	for i := len(pw); i > 0; i >>= 1 {
-		if i&1 != 0 { dA.Write([]byte{0}) } else { dA.Write(pw[:1]) }
+		if i&1 != 0 {
+			dA.Write([]byte{0})
+		} else {
+			dA.Write(pw[:1])
+		}
 	}
 	sumA := dA.Sum(nil)
 
 	c := sumA
 	for i := 0; i < 1000; i++ {
 		dC := md5.New()
-		if i&1 != 0 { dC.Write(pw) } else { dC.Write(c) }
-		if i%3 != 0 { dC.Write(sa) }
-		if i%7 != 0 { dC.Write(pw) }
-		if i&1 != 0 { dC.Write(c) } else { dC.Write(pw) }
+		if i&1 != 0 {
+			dC.Write(pw)
+		} else {
+			dC.Write(c)
+		}
+		if i%3 != 0 {
+			dC.Write(sa)
+		}
+		if i%7 != 0 {
+			dC.Write(pw)
+		}
+		if i&1 != 0 {
+			dC.Write(c)
+		} else {
+			dC.Write(pw)
+		}
 		c = dC.Sum(nil)
 	}
 
@@ -221,18 +299,24 @@ func parseCryptSetting(setting, id string) (salt string, rounds int) {
 	if strings.HasPrefix(s, "rounds=") {
 		parts := strings.SplitN(s, "$", 2)
 		fmt.Sscanf(parts[0], "rounds=%d", &rounds)
-		if len(parts) > 1 { s = parts[1] }
+		if len(parts) > 1 {
+			s = parts[1]
+		}
 	}
 	parts := strings.SplitN(s, "$", 2)
 	salt = parts[0]
-	if len(salt) > 16 { salt = salt[:16] }
+	if len(salt) > 16 {
+		salt = salt[:16]
+	}
 	return
 }
 
 func buildResult(id, salt string, rounds int, encoded string) string {
 	var sb strings.Builder
 	sb.WriteString(id)
-	if rounds != 5000 { sb.WriteString(fmt.Sprintf("rounds=%d$", rounds)) }
+	if rounds != 5000 {
+		sb.WriteString(fmt.Sprintf("rounds=%d$", rounds))
+	}
 	sb.WriteString(salt)
 	sb.WriteByte('$')
 	sb.WriteString(encoded)
@@ -241,7 +325,9 @@ func buildResult(id, salt string, rounds int, encoded string) string {
 
 func repeatBytes(src []byte, n int) []byte {
 	out := make([]byte, n)
-	for i := range out { out[i] = src[i%len(src)] }
+	for i := range out {
+		out[i] = src[i%len(src)]
+	}
 	return out
 }
 

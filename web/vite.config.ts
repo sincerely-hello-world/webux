@@ -21,15 +21,18 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // In dev mode, proxy API and WebSocket calls to the Go backend
+    // In dev mode, proxy API and WebSocket calls to the Go backend.
+    // Backend always serves HTTPS (self-signed in dev) on :8989 — see cmd/webux/main.go.
     proxy: {
       '/api': {
-        target: 'http://localhost:9090',
+        target: 'https://localhost:8989',
         changeOrigin: true,
+        secure: false, // dev 自签证书, 跳过 TLS 校验
       },
       '/ws': {
-        target: 'ws://localhost:9090',
+        target: 'wss://localhost:8989',
         ws: true,
+        secure: false,
       }
     }
   }

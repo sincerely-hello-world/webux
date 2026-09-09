@@ -29,7 +29,7 @@ type Result struct {
 
 // Score is the aggregated result of all checks.
 type Score struct {
-	Results []Result  `json:"results"`
+	Results  []Result  `json:"results"`
 	Raw      int       `json:"raw"`
 	Max      int       `json:"max"`
 	Pct      int       `json:"pct"`

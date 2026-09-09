@@ -16,9 +16,9 @@ import (
 // Interface represents a network interface with all its properties.
 type Interface struct {
 	Name        string   `json:"name"`
-	Type        string   `json:"type"`         // ethernet, loopback, bridge, bond, vlan, veth, tun, dummy
-	State       string   `json:"state"`        // up, down, unknown
-	Flags       []string `json:"flags"`        // UP, BROADCAST, RUNNING, MULTICAST, etc.
+	Type        string   `json:"type"`  // ethernet, loopback, bridge, bond, vlan, veth, tun, dummy
+	State       string   `json:"state"` // up, down, unknown
+	Flags       []string `json:"flags"` // UP, BROADCAST, RUNNING, MULTICAST, etc.
 	MAC         string   `json:"mac"`
 	MTU         int      `json:"mtu"`
 	Addresses   []Addr   `json:"addresses"`
@@ -28,9 +28,9 @@ type Interface struct {
 	TxPackets   uint64   `json:"tx_packets"`
 	RxErrors    uint64   `json:"rx_errors"`
 	TxErrors    uint64   `json:"tx_errors"`
-	Speed       string   `json:"speed"`        // e.g. "1000" Mbps, "" if unknown
-	Duplex      string   `json:"duplex"`       // full, half, unknown
-	Driver      string   `json:"driver"`       // kernel module name
+	Speed       string   `json:"speed"`            // e.g. "1000" Mbps, "" if unknown
+	Duplex      string   `json:"duplex"`           // full, half, unknown
+	Driver      string   `json:"driver"`           // kernel module name
 	MasterIface string   `json:"master,omitempty"` // bond/bridge master
 	VLANOf      string   `json:"vlan_of,omitempty"`
 	VLANID      int      `json:"vlan_id,omitempty"`
@@ -38,10 +38,10 @@ type Interface struct {
 
 // Addr is an IP address assigned to an interface.
 type Addr struct {
-	IP      string `json:"ip"`
-	Prefix  int    `json:"prefix"`
-	Family  string `json:"family"` // inet | inet6
-	Scope   string `json:"scope"`  // global | link | host
+	IP     string `json:"ip"`
+	Prefix int    `json:"prefix"`
+	Family string `json:"family"` // inet | inet6
+	Scope  string `json:"scope"`  // global | link | host
 }
 
 // Route represents a kernel routing table entry.
@@ -106,16 +106,16 @@ func (m *Manager) List() ([]Interface, error) {
 
 		// Stats from /proc/net/dev
 		if s, ok := statsMap[iface.Name]; ok {
-			ni.RxBytes   = s[0]
+			ni.RxBytes = s[0]
 			ni.RxPackets = s[1]
-			ni.RxErrors  = s[2]
-			ni.TxBytes   = s[8]
+			ni.RxErrors = s[2]
+			ni.TxBytes = s[8]
 			ni.TxPackets = s[9]
-			ni.TxErrors  = s[10]
+			ni.TxErrors = s[10]
 		}
 
 		// Extra info from /sys/class/net/<name>/
-		ni.Speed  = readSysStr(iface.Name, "speed")
+		ni.Speed = readSysStr(iface.Name, "speed")
 		// Kernel reports -1 for virtual/unknown interfaces — treat as unknown
 		if ni.Speed == "-1" || ni.Speed == "4294967295" {
 			ni.Speed = ""
@@ -204,8 +204,9 @@ func (m *Manager) SetMTU(name string, mtu int) (string, error) {
 
 // readProcNetDev parses /proc/net/dev into a map of iface → []uint64 counters.
 // Counter order: rx_bytes rx_packets rx_errs rx_drop rx_fifo rx_frame
-//                rx_compressed rx_multicast
-//                tx_bytes tx_packets tx_errs tx_drop tx_fifo tx_colls tx_carrier tx_compressed
+//
+//	rx_compressed rx_multicast
+//	tx_bytes tx_packets tx_errs tx_drop tx_fifo tx_colls tx_carrier tx_compressed
 func readProcNetDev() (map[string][]uint64, error) {
 	f, err := os.Open("/proc/net/dev")
 	if err != nil {
@@ -397,29 +398,47 @@ func ifaceState(flags net.Flags) string {
 
 func parseFlags(flags net.Flags) []string {
 	var out []string
-	if flags&net.FlagUp != 0 { out = append(out, "UP") }
-	if flags&net.FlagBroadcast != 0 { out = append(out, "BROADCAST") }
-	if flags&net.FlagLoopback != 0 { out = append(out, "LOOPBACK") }
-	if flags&net.FlagPointToPoint != 0 { out = append(out, "POINTTOPOINT") }
-	if flags&net.FlagMulticast != 0 { out = append(out, "MULTICAST") }
+	if flags&net.FlagUp != 0 {
+		out = append(out, "UP")
+	}
+	if flags&net.FlagBroadcast != 0 {
+		out = append(out, "BROADCAST")
+	}
+	if flags&net.FlagLoopback != 0 {
+		out = append(out, "LOOPBACK")
+	}
+	if flags&net.FlagPointToPoint != 0 {
+		out = append(out, "POINTTOPOINT")
+	}
+	if flags&net.FlagMulticast != 0 {
+		out = append(out, "MULTICAST")
+	}
 	return out
 }
 
 func addrScope(ip net.IP) string {
-	if ip.IsLoopback() { return "host" }
-	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() { return "link" }
+	if ip.IsLoopback() {
+		return "host"
+	}
+	if ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return "link"
+	}
 	return "global"
 }
 
 func hexToIPv4(hexStr string) string {
 	val, err := strconv.ParseUint(hexStr, 16, 32)
-	if err != nil { return "0.0.0.0" }
+	if err != nil {
+		return "0.0.0.0"
+	}
 	return fmt.Sprintf("%d.%d.%d.%d",
 		val&0xff, (val>>8)&0xff, (val>>16)&0xff, (val>>24)&0xff)
 }
 
 func hexToIPv6(hexStr string) string {
-	if len(hexStr) != 32 { return "::" }
+	if len(hexStr) != 32 {
+		return "::"
+	}
 	b := make([]byte, 16)
 	for i := 0; i < 16; i++ {
 		v, _ := strconv.ParseUint(hexStr[i*2:i*2+2], 16, 8)
@@ -430,7 +449,9 @@ func hexToIPv6(hexStr string) string {
 
 func maskToPrefix(mask string) int {
 	parts := strings.Split(mask, ".")
-	if len(parts) != 4 { return 0 }
+	if len(parts) != 4 {
+		return 0
+	}
 	var n int
 	for _, p := range parts {
 		v, _ := strconv.Atoi(p)

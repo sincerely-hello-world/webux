@@ -1,22 +1,73 @@
+# ─────────────────────────────────────────────────────────────────────────────
 # Webux configuration
-# All settings can also be set via environment variables (WEBUX_*)
+#
+#   Apply changes with:   sudo systemctl restart webux
+#   Check the result in:  sudo journalctl -u webux -n 20
+#
+# Every setting below can also be supplied as an environment variable, which
+# takes precedence over this file:
+#
+#   WEBUX_LISTEN_ADDR    → listen_addr
+#   WEBUX_DATA_DIR       → data_dir
+#   WEBUX_BYPASS_TOKEN   → auth.bypass_token
+#   WEBUX_AUTH_DISABLED  → auth.disabled  (accepts "true" or "1")
+#
+# Unknown keys are ignored silently — a typo produces no warning, so confirm
+# any change you make in the service log.
+# ─────────────────────────────────────────────────────────────────────────────
 
-server:
-  host: "0.0.0.0"
-  port: 8989
+# ── Network ──────────────────────────────────────────────────────────────────
+# Address the panel listens on. Webux always serves HTTPS; there is no
+# plain-HTTP mode.
+#   ":8989"            every interface, port 8989 (default)
+#   "127.0.0.1:8989"   loopback only — reach it via an SSH tunnel or a reverse
+#                      proxy instead of exposing it directly
+listen_addr: ":8989"
 
+# ── Storage ──────────────────────────────────────────────────────────────────
+# Holds webux.db (SQLite) and, unless TLS is configured below, the generated
+# certificate. Back this up: it stores the JWT signing key.
 data_dir: "/var/lib/webux"
 
-# TLS — Webux always runs HTTPS.
-# Leave blank to use an auto-generated self-signed certificate (stored in data_dir).
-# Provide paths to use your own certificate (Let's Encrypt, internal CA, etc.)
-tls_cert_file: ""   # e.g. /etc/letsencrypt/live/myserver.example.com/fullchain.pem
-tls_key_file:  ""   # e.g. /etc/letsencrypt/live/myserver.example.com/privkey.pem
+# ── TLS ──────────────────────────────────────────────────────────────────────
+# Leave both blank to auto-generate a self-signed certificate into data_dir on
+# first run (browsers warn until you trust it).
+# Set both to use your own certificate.
+tls_cert_file: ""
+tls_key_file: ""
 
+# ── Authentication ───────────────────────────────────────────────────────────
 auth:
-  bypass_token: ""  # SSO bypass — leave blank to disable
-  jwt_secret:   ""  # Leave blank — auto-generated on first run
-  disabled:     false
+  # When set, a request carrying "X-Webux-Token: <value>" bypasses
+  # authentication — handy for SSO and automation. Keep it secret and long:
+  #   openssl rand -hex 32
+  bypass_token: ""
 
-log:
-  level: "info"   # debug | info | warn | error
+  # Signing key for session tokens. Leave blank: a key is generated on first
+  # run and kept in the database. Sessions therefore survive restarts, but not
+  # a data_dir change.
+  jwt_secret: ""
+
+  # Turn authentication off entirely. DEVELOPMENT ONLY — never on a host
+  # reachable from an untrusted network.
+  disabled: false
+
+  # If non-empty, only these Unix accounts may log in; every other account is
+  # rejected even with valid credentials. Recommended on shared hosts.
+  #   allowed_users: ["alice", "ops"]
+  allowed_users: []
+
+# ── File manager ─────────────────────────────────────────────────────────────
+files:
+  # Top-level directory the file manager may browse. Narrow it to limit what
+  # the panel exposes. Only use "/" if you accept the whole filesystem being
+  # reachable through the panel.
+  root: "/home"
+
+# ── Logging ──────────────────────────────────────────────────────────────────
+# One of: debug | info | warn | error
+log_level: "info"
+
+# ── Learn Mode ───────────────────────────────────────────────────────────────
+# Show the equivalent shell command alongside each action in the UI.
+learn_mode: true

@@ -1,0 +1,394 @@
+# ═══════════════════════════════════════════════════════════════════
+# Webux — mise 配置 (https://mise.jdx.dev)
+#
+# **本项目唯一的命令入口** —— 原先的 Makefile 与 justfile 已删除,
+# 构建 / 测试 / 打包 / 安装全部在这里的 [tasks] 里声明。
+#
+# 首次使用:
+#   mise install      # 按下方 [tools] 下载并安装工具链
+#   mise run setup    # 安装项目依赖 (go mod tidy + 前端 nub install)
+#
+# 查看全部命令:  mise tasks ls
+#   等价于原先的 `make help` / `just --list`, 但由 mise 内置提供,
+#   因此不再有专门的 help 任务。
+#
+# 常用命令:
+#   mise run build      构建前端 + 后端 -> build/webux
+#   mise run dev        后端热重载 + 前端 dev server
+#   mise run test       完整测试 (go test + svelte-check)
+#   mise run ci         与 GitHub Actions 逐字等价的 CI 检查
+#   mise run snapshot   本地构建全部发布产物 -> build/dist/ (无需 tag)
+#   mise run release    发布当前 tag 的正式版本
+#
+# 升级工具: mise upgrade golang air nub goreleaser
+#
+# 若 mise 后端不可用, goreleaser 可手工安装:
+#   go install github.com/goreleaser/goreleaser/v2@latest
+# ═══════════════════════════════════════════════════════════════════
+
+[tools]
+# Go 后端工具链 —— 满足 go.mod 中 `go 1.25.0` 要求 (1.26.x 为当前受支持版本线)
+golang = "1.26.5"
+
+# air —— Go 热重载工具 (mise run dev / dev-backend 依赖)
+air = "1.67.4"
+
+# nub —— 前端 Node.js 运行时 + 包管理统一交给 nub (all-in-one Node.js toolkit):
+#   * Node 版本由仓库根的 .node-version 锁定 (24 LTS), 不经 mise 托管 ——
+#     nub 从 cwd 向上查找该文件, 因此仓库根与 web/ 下都能命中。
+#   * nub install / ci   : 安装前端依赖 (替代 npm; web/nub.lock 是唯一 lockfile)
+#   * nub run <script>   : 运行 package.json 脚本 (替代 npm run)
+nub = "0.9.0"
+
+# goreleaser —— 打包与分发 (取代原 fpm + 3 个手工编排的 shell 脚本):
+#   * 交叉编译 4 个目标 (linux amd64/arm64/armv7), 见 .goreleaser.yaml
+#   * nfpm 为纯 Go 实现, 生成 deb/rpm/archlinux 包, 不再需要 fpm/rpmbuild/bsdtar
+#   * 生成 tar.gz 安装树 + 纯二进制归档 + 统一的 checksums.txt
+#   * goreleaser release  --clean              发布 (需要 git tag)
+#   * goreleaser release  --snapshot --clean   本地试跑 (不需要 tag)
+#   * goreleaser check                         校验配置
+# 常用入口: mise run snapshot / mise run release
+goreleaser = "2.18.1"
+
+# ── 全局环境变量 ───────────────────────────────────────────────────────
+[env]
+# 全仓库禁用 CGO。唯一使用 cgo 的地方是 internal/auth/pam.go (//go:build pam,
+# 需要 libpam), 由专门的 `mise run build-pam` 任务局部覆盖为 CGO_ENABLED=1。
+#
+# 三个数据库驱动全是纯 Go, 因此这里**不影响**数据库功能:
+#   MySQL      github.com/go-sql-driver/mysql
+#   PostgreSQL github.com/jackc/pgx/v5
+#   SQLite     github.com/ncruces/go-sqlite3 (经 tetratelabs/wazero 的 WASM 运行时)
+# internal/system/databases 下的 mysql/postgres 两个 build tag 决定的是
+# "编入哪个驱动实现" (mysql.go vs mysql_stub.go), 与 CGO 无关。
+CGO_ENABLED = "0"
+
+# ═══════════════════════════════════════════════════════════════════════
+# 任务
+#
+# 约定:
+#   * 任务默认在 mise.toml 所在目录 (仓库根) 下执行, 路径都是仓库根相对。
+#   * 多行脚本一律写成带 `#!/usr/bin/env bash` shebang 的 `'''…'''` 块,
+#     以便拿到 bash 而非 sh。
+#   * **不需要**写 `_require_nub` / `_require_goreleaser` 这类前置检查 ——
+#     mise 在运行任务前会自动安装缺失的 [tools]。
+# ═══════════════════════════════════════════════════════════════════════
+
+# ── 环境 ───────────────────────────────────────────────────────────────
+
+[tasks.setup]
+description = "安装项目依赖 (go mod tidy + 前端 nub install)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+go mod tidy
+(cd web && nub install)
+'''
+
+[tasks.info]
+description = "显示当前工具链版本 (CI 排障用)"
+run = '''
+#!/usr/bin/env bash
+set -uo pipefail
+echo "go:          $(go version)"
+echo "nub:         $(nub --version 2>/dev/null || echo n/a)"
+echo "node:        $(nub --node -v 2>/dev/null || echo n/a)"
+echo "goreleaser:  $(goreleaser --version 2>/dev/null | sed -n 's/^GitVersion:[[:space:]]*//p' || echo n/a)"
+echo "CGO_ENABLED: ${CGO_ENABLED:-unset}"
+'''
+
+# ── 前端 ───────────────────────────────────────────────────────────────
+
+[tasks.web]
+description = "构建前端并同步到 cmd/webux/dist (本地迭代用 nub install)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+(cd web && nub install && nub run build)
+rm -rf cmd/webux/dist
+cp -r web/dist cmd/webux/dist
+'''
+
+[tasks.web-ci]
+description = "构建前端并同步到 cmd/webux/dist (发布/CI 用 nub ci, 与 goreleaser hook 一致)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+(cd web && nub ci && nub run build)
+rm -rf cmd/webux/dist
+cp -r web/dist cmd/webux/dist
+'''
+
+[tasks.sync-dist]
+description = "把已构建的 web/dist 同步到 cmd/webux/dist (跳过依赖安装与构建)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+rm -rf cmd/webux/dist
+cp -r web/dist cmd/webux/dist
+'''
+
+[tasks.check-web]
+description = "前端类型检查 (svelte-check)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+(cd web && nub run check)
+'''
+
+[tasks.ensure-dist]
+description = "校验 go:embed 所需的前端产物是否存在 (内部前置检查)"
+hide = true
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+if [ ! -f cmd/webux/dist/index.html ]; then
+  echo "✗ cmd/webux/dist 缺失 — cmd/webux/embed.go 使用 //go:embed dist" >&2
+  echo "  请先执行: mise run web" >&2
+  exit 1
+fi
+'''
+
+# ── 构建 ───────────────────────────────────────────────────────────────
+# 默认编入 mysql + postgres 驱动, 与发布产物保持一致 (见 .goreleaser.yaml 的
+# builds.tags)。不加这两个 tag 时 internal/system/databases/mysql_stub.go
+# (//go:build !mysql) 会让 connectMySQL 直接返回 ErrDriverNotCompiled —— 只能
+# 探测实例、不能执行查询, 而发布出去的包是带驱动的, 本地与线上会静默不一致。
+
+[tasks.build]
+description = "构建前端 + 当前平台后端 -> build/webux (含 mysql/postgres 驱动)"
+depends = ["web"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p build
+go build -tags "mysql postgres" -trimpath \
+  -ldflags "$(sh scripts/ldflags.sh)" \
+  -o build/webux ./cmd/webux
+echo "✓ build/webux"
+'''
+
+[tasks.build-mysql]
+description = "仅带 MySQL 驱动的后端构建 -> build/webux-mysql"
+depends = ["web"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p build
+go build -tags mysql -trimpath \
+  -ldflags "$(sh scripts/ldflags.sh)" \
+  -o build/webux-mysql ./cmd/webux
+echo "✓ build/webux-mysql"
+'''
+
+[tasks.build-postgres]
+description = "仅带 PostgreSQL 驱动的后端构建 -> build/webux-postgres"
+depends = ["web"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p build
+go build -tags postgres -trimpath \
+  -ldflags "$(sh scripts/ldflags.sh)" \
+  -o build/webux-postgres ./cmd/webux
+echo "✓ build/webux-postgres"
+'''
+
+[tasks.build-pam]
+description = "带 PAM 鉴权 + 全部数据库驱动的构建 -> build/webux-pam (需要 CGO + libpam-dev)"
+depends = ["web"]
+# 局部覆盖 [env] 的 CGO_ENABLED=0 —— 这是全仓库唯一需要 CGO 的目标。
+# Debian/Ubuntu: apt install libpam0g-dev
+# RHEL/Fedora:   dnf install pam-devel
+# Arch:          pacman -S pam
+env = { CGO_ENABLED = "1" }
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p build
+go build -tags "mysql postgres pam" -trimpath \
+  -ldflags "$(sh scripts/ldflags.sh)" \
+  -o build/webux-pam ./cmd/webux
+echo "✓ build/webux-pam (目标机需要 libpam)"
+'''
+
+# ── 打包与分发 (GoReleaser) ────────────────────────────────────────────
+# 交叉编译、归档、deb/rpm/pkg.tar.zst 生成全部由 .goreleaser.yaml 声明式完成。
+# 因此这里**刻意没有**按架构或按格式展开的任务: snapshot / release 各自只调用
+# GoReleaser 一次, 由它自己遍历全部目标。
+#
+# 被取代的东西: 原 Makefile 的 _build_cross、release-<arch>、release-full、
+# checksums、package-<arch>、package 等目标, 以及三个功能重叠的 shell 脚本。
+# nfpm 是纯 Go 实现, 所以产出这些包**不再需要** fpm / rpmbuild / bsdtar。
+
+[tasks.check-release]
+description = "校验 .goreleaser.yaml"
+run = "goreleaser check"
+
+[tasks.snapshot]
+description = "本地构建全部发布产物到 build/dist/ (16 个产物, 不发布, 无需 git tag)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+# 3 deb + 3 rpm + 3 pkg.tar.zst + 3 安装树 tar.gz + 3 纯二进制 tar.gz
+# + 1 checksums.txt = 16 个发布产物。目录里另有 goreleaser 自己的
+# metadata.json / artifacts.json / config.yaml 与按目标命名的中间二进制,
+# 所以不要用 `ls | wc -l` 计数。
+# --snapshot 隐含 --skip=announce,publish,validate, 因此工作区有未提交改动也能跑。
+goreleaser release --snapshot --clean
+echo
+echo "✓ 产物 (build/dist/):"
+ls -1 build/dist | grep -E '\.(deb|rpm|zst|gz)$|checksums'
+'''
+
+[tasks.release]
+description = "发布当前 git tag 的正式版本 (要求 tag 在 HEAD 且工作区干净)"
+run = "goreleaser release --clean"
+
+# ── 质量 ───────────────────────────────────────────────────────────────
+
+[tasks.fmt]
+description = "格式化 Go 源码 (gofmt -w, 仅受版本控制的文件)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+git ls-files -z '*.go' | xargs -0 gofmt -w
+'''
+
+[tasks.vet]
+description = "go vet 静态检查 (需要前端产物: cmd/webux 里的 //go:embed dist)"
+depends = ["web"]
+run = "go vet ./..."
+
+[tasks.test-go]
+description = "快速 Go 单元测试 (仅 internal 包, 无需前端产物)"
+run = "go test ./internal/..."
+
+[tasks.test]
+description = "完整测试: go test ./... + 前端类型检查"
+depends = ["web"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+go test ./...
+(cd web && nub run check)
+'''
+
+[tasks.ci]
+description = "CI 入口 —— 与 .github/workflows/ci.yml 逐字等价"
+# go vet ./... 与 go test ./... 会编译 cmd/webux, 而它的 //go:embed dist
+# 要求 cmd/webux/dist 先存在, 所以必须先跑前端。用 web-ci (nub ci) 而不是
+# web (nub install), 以保证本地 / CI / release 三者逐字一致。
+depends = ["web-ci"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "→ gofmt"
+unformatted=$(git ls-files -z '*.go' | xargs -0 gofmt -l)
+if [ -n "$unformatted" ]; then
+  echo "✗ 以下文件未通过 gofmt (运行 'mise run fmt' 修复):" >&2
+  echo "$unformatted" >&2
+  exit 1
+fi
+
+echo "→ go vet"
+go vet ./...
+
+echo "→ go test"
+go test ./...
+
+echo "→ svelte-check"
+(cd web && nub run check)
+
+echo "→ goreleaser check"
+goreleaser check
+
+echo "✓ ci 全部通过"
+'''
+
+# ── 开发 ───────────────────────────────────────────────────────────────
+
+[tasks.dev]
+description = "后端热重载 (air) + 前端 dev server (vite), Ctrl-C 一并退出"
+depends = ["ensure-dist"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p /tmp/webux-data
+(cd web && nub run dev) &
+dev_pid=$!
+cleanup() { kill "$dev_pid" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+WEBUX_DATA_DIR=/tmp/webux-data air -c .air.toml
+'''
+
+[tasks.dev-backend]
+description = "仅后端热重载 (air, HTTPS :8989, 数据目录 /tmp/webux-data)"
+depends = ["ensure-dist"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p /tmp/webux-data
+WEBUX_DATA_DIR=/tmp/webux-data air -c .air.toml
+'''
+
+[tasks.dev-frontend]
+description = "仅前端 dev server (vite :5173, API 代理到 https://localhost:8989)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+(cd web && nub run dev)
+'''
+
+[tasks.run]
+description = "本地运行后端 (先构建; 数据目录 /tmp/webux-data, 需要 root)"
+depends = ["build"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p /tmp/webux-data
+sudo WEBUX_DATA_DIR=/tmp/webux-data ./build/webux
+'''
+
+# ── 系统安装 ───────────────────────────────────────────────────────────
+
+[tasks.install]
+description = "安装到本机 (先构建; 任务内部逐条 sudo, 需要 root)"
+depends = ["build"]
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+# 注意: 不能写成 `sudo mise run install` —— sudo 会丢掉 mise 的 PATH 与环境
+# 变量, 里面的 go 等工具就找不到了。所以由任务内部逐条 sudo。
+sudo install -m 755 build/webux /usr/local/bin/webux
+sudo mkdir -p /etc/webux /var/lib/webux
+if [ ! -f /etc/webux/config.yaml ]; then
+  sudo install -m 644 scripts/config.yaml /etc/webux/config.yaml
+fi
+# 与三种发行包 (nfpm) 保持一致: unit 落在 /usr/lib/systemd/system,
+# 而不是原 Makefile 的 /etc/systemd/system (那是管理员覆盖的地方)。
+sudo install -m 644 scripts/webux.service /usr/lib/systemd/system/webux.service
+sudo systemctl daemon-reload
+sudo systemctl enable webux
+echo "✓ 已安装 —— 启动: sudo systemctl start webux"
+'''
+
+[tasks.uninstall]
+description = "从本机卸载 (保留 /var/lib/webux 数据)"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+sudo systemctl disable --now webux 2>/dev/null || true
+sudo rm -f /usr/local/bin/webux /usr/lib/systemd/system/webux.service
+sudo systemctl daemon-reload
+echo "✓ 已卸载 (数据保留在 /var/lib/webux)"
+'''
+
+[tasks.clean]
+description = "清理全部构建产物"
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+rm -rf build web/dist cmd/webux/dist .air
+'''

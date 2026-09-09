@@ -1,0 +1,55 @@
+name: Release
+
+# ⏸ 待命状态 —— 本文件已完整写好, 但刻意不自动触发。
+#
+# 目前只启用 .github/workflows/ci.yml。要启用「打 tag 自动发版」,
+# 把下面的注释块换成非注释的 `on:` 即可:
+#
+# on:
+#   push:
+#     tags:
+#       - "v*"
+#   workflow_dispatch:
+#
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # GoReleaser 需要完整历史与全部 tag 才能推导 .Version
+          # ({{ .Version }} = 最近的可达 tag, 不含前导 v)。
+          fetch-depth: 0
+
+      # 与 ci.yml 相同: mise 负责 go / nub / goreleaser 与 [env] CGO_ENABLED=0。
+      - name: Install toolchain via mise
+        uses: jdx/mise-action@v4
+
+      # Node 由 nub 管理 (版本见 .node-version), 不归 mise 管, 需单独缓存预热。
+      - name: Cache nub-managed Node
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/nub
+          key: ${{ runner.os }}-nub-${{ hashFiles('.node-version') }}
+
+      - name: Provision pinned Node (24 LTS)
+        run: nub node install
+
+      # 与本地 `mise run release` 逐字相同 (goreleaser release --clean),
+      # 其中 before.hooks 会调用 `mise run web-ci` 先构建前端。
+      #
+      # ⚠️ goreleaser release 要求 tag 就在 HEAD 且工作区干净:
+      #    * 手动触发时, 请在 GitHub 的 "Use workflow from" 里**选择对应的 tag**
+      #      (例如 v0.1.1), 否则 checkout 拿到的是分支, 没有 tag 会直接报错。
+      #    * 启用 push: tags 之后, 这个条件自然满足。
+      - name: Run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: mise run release

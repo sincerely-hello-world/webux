@@ -27,18 +27,18 @@ func (h *SystemHandler) Info(w http.ResponseWriter, r *http.Request) {
 	hostname, _ := os.Hostname()
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
-		"hostname":    hostname,
-		"distro":      h.hostInfo.Distro,
-		"arch":        h.hostInfo.Arch,
-		"kernel":      h.hostInfo.Kernel,
-		"init_system": h.hostInfo.InitSystem,
-		"has_docker":  h.hostInfo.HasDocker,
-		"has_podman":  h.hostInfo.HasPodman,
-		"has_ansible": h.hostInfo.HasAnsible,
-		"has_puppet":  h.hostInfo.HasPuppet,
-		"has_ufw":     h.hostInfo.HasUFW,
-		"has_nftables":h.hostInfo.HasNFTables,
-		"has_iptables":h.hostInfo.HasIPTables,
+		"hostname":     hostname,
+		"distro":       h.hostInfo.Distro,
+		"arch":         h.hostInfo.Arch,
+		"kernel":       h.hostInfo.Kernel,
+		"init_system":  h.hostInfo.InitSystem,
+		"has_docker":   h.hostInfo.HasDocker,
+		"has_podman":   h.hostInfo.HasPodman,
+		"has_ansible":  h.hostInfo.HasAnsible,
+		"has_puppet":   h.hostInfo.HasPuppet,
+		"has_ufw":      h.hostInfo.HasUFW,
+		"has_nftables": h.hostInfo.HasNFTables,
+		"has_iptables": h.hostInfo.HasIPTables,
 	})
 }
 

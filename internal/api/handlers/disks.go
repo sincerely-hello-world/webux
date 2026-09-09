@@ -61,7 +61,9 @@ func (h *DisksHandler) Extend(w http.ResponseWriter, r *http.Request) {
 
 	for line := range out {
 		fmt.Fprintf(w, "data: %s\n\n", line)
-		if ok { flusher.Flush() }
+		if ok {
+			flusher.Flush()
+		}
 	}
 }
 

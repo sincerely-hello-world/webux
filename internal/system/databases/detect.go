@@ -15,11 +15,11 @@ import (
 type Driver string
 
 const (
-	DriverMySQL      Driver = "mysql"
-	DriverPostgres   Driver = "postgres"
-	DriverRedis      Driver = "redis"
-	DriverMongoDB    Driver = "mongodb"
-	DriverSQLite     Driver = "sqlite"
+	DriverMySQL    Driver = "mysql"
+	DriverPostgres Driver = "postgres"
+	DriverRedis    Driver = "redis"
+	DriverMongoDB  Driver = "mongodb"
+	DriverSQLite   Driver = "sqlite"
 )
 
 // Instance is a detected database instance on this host.
@@ -29,17 +29,17 @@ type Instance struct {
 	Port     int    `json:"port"`
 	DataDir  string `json:"data_dir"`
 	Version  string `json:"version"`
-	Socket   string `json:"socket"`     // unix socket path if applicable
+	Socket   string `json:"socket"` // unix socket path if applicable
 	Running  bool   `json:"running"`
-	CanQuery bool   `json:"can_query"`  // driver compiled in and connectable
+	CanQuery bool   `json:"can_query"` // driver compiled in and connectable
 }
 
 // QueryResult is the result of a read-only SQL query.
 type QueryResult struct {
-	Columns []string        `json:"columns"`
-	Rows    [][]interface{} `json:"rows"`
-	RowCount int            `json:"row_count"`
-	Error   string          `json:"error,omitempty"`
+	Columns  []string        `json:"columns"`
+	Rows     [][]interface{} `json:"rows"`
+	RowCount int             `json:"row_count"`
+	Error    string          `json:"error,omitempty"`
 }
 
 // DB is a live database connection.
@@ -104,8 +104,8 @@ func Detect() []Instance {
 
 	// Also check well-known unix sockets
 	sockets := map[string]Driver{
-		"/var/run/mysqld/mysqld.sock": DriverMySQL,
-		"/tmp/mysql.sock":             DriverMySQL,
+		"/var/run/mysqld/mysqld.sock":       DriverMySQL,
+		"/tmp/mysql.sock":                   DriverMySQL,
 		"/var/run/postgresql/.s.PGSQL.5432": DriverPostgres,
 	}
 	seen := make(map[Driver]bool)

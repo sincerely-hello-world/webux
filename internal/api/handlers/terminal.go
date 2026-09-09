@@ -40,8 +40,8 @@ func wsCheckOrigin(r *http.Request) bool {
 
 // TerminalHandler manages PTY sessions over WebSocket.
 type TerminalHandler struct {
-	db   *sql.DB
-	mu   sync.Mutex
+	db *sql.DB
+	mu sync.Mutex
 }
 
 func NewTerminalHandler(db *sql.DB) *TerminalHandler {

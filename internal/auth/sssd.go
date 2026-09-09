@@ -71,7 +71,9 @@ func userInShadow(username string) bool {
 }
 
 // authenticateSU verifies username/password by spawning:
-//   su -s /bin/sh -c 'exit 0' <username>
+//
+//	su -s /bin/sh -c 'exit 0' <username>
+//
 // and injecting the password via PTY. This works for:
 //   - Local shadow accounts (fallback)
 //   - SSSD: LDAP, Active Directory, FreeIPA, Kerberos

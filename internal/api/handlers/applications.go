@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/brendan4linux/webux/internal/learn"
 	"github.com/brendan4linux/webux/internal/system/cron"
 	"github.com/brendan4linux/webux/internal/system/files"
 	"github.com/brendan4linux/webux/internal/system/webservers"
+	"github.com/go-chi/chi/v5"
 )
 
 // ─── Webservers ─────────────────────────────────────────────────────────────
@@ -217,7 +217,9 @@ func (h *FilesHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // Mkdir handles POST /api/files/mkdir[?sudo=true]
 func (h *FilesHandler) Mkdir(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Path string `json:"path"` }
+	var body struct {
+		Path string `json:"path"`
+	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "invalid body", http.StatusBadRequest)
 		return
@@ -410,9 +412,10 @@ func (h *CronHandler) Update(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]interface{}{"ok": true, "cli_cmd": cliCmd})
 }
 
-
 func (h *CronHandler) Validate(w http.ResponseWriter, r *http.Request) {
-	var body struct{ Schedule string `json:"schedule"` }
+	var body struct {
+		Schedule string `json:"schedule"`
+	}
 	json.NewDecoder(r.Body).Decode(&body)
 	err := cron.ValidateSchedule(body.Schedule)
 	if err != nil {

@@ -17,15 +17,15 @@ import (
 type Process struct {
 	PID        int     `json:"pid"`
 	PPID       int     `json:"ppid"`
-	Name       string  `json:"name"`        // from /proc/<pid>/comm
-	Cmdline    string  `json:"cmdline"`     // from /proc/<pid>/cmdline
-	State      string  `json:"state"`       // R, S, D, Z, T, etc.
-	StateName  string  `json:"state_name"`  // human-readable
+	Name       string  `json:"name"`       // from /proc/<pid>/comm
+	Cmdline    string  `json:"cmdline"`    // from /proc/<pid>/cmdline
+	State      string  `json:"state"`      // R, S, D, Z, T, etc.
+	StateName  string  `json:"state_name"` // human-readable
 	Username   string  `json:"username"`
 	UID        int     `json:"uid"`
 	CPUPercent float64 `json:"cpu_percent"`
-	MemRSS     uint64  `json:"mem_rss_kb"`  // resident set size in KB
-	MemVSZ     uint64  `json:"mem_vsz_kb"`  // virtual memory in KB
+	MemRSS     uint64  `json:"mem_rss_kb"` // resident set size in KB
+	MemVSZ     uint64  `json:"mem_vsz_kb"` // virtual memory in KB
 	Threads    int     `json:"threads"`
 	Priority   int     `json:"priority"`
 	Nice       int     `json:"nice"`
@@ -70,10 +70,10 @@ func (s *Scanner) List() ([]Process, error) {
 
 	// Two-pass: first read raw ticks, then compute CPU% using a 200ms delta
 	type rawProc struct {
-		pid      int
-		utime    uint64
-		stime    uint64
-		elapsed  float64 // seconds since proc started
+		pid     int
+		utime   uint64
+		stime   uint64
+		elapsed float64 // seconds since proc started
 	}
 
 	var raws []rawProc

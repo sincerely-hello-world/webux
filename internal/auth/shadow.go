@@ -11,9 +11,9 @@ import (
 
 // authenticateShadow is the main auth entry point for non-PAM builds.
 // Priority:
-//   1. Local shadow entry exists → verify with pure-Go crypt
-//   2. No shadow entry but SSSD is running → authenticate via su PTY
-//   3. Neither → fail
+//  1. Local shadow entry exists → verify with pure-Go crypt
+//  2. No shadow entry but SSSD is running → authenticate via su PTY
+//  3. Neither → fail
 func authenticateShadow(username, password string) error {
 	hash, shadowErr := shadowHash(username)
 

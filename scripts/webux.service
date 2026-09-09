@@ -1,22 +1,49 @@
 [Unit]
 Description=Webux Linux Management Panel
 Documentation=https://github.com/brendan4linux/webux
-After=network.target
-Wants=network.target
+# Wait for a usable network rather than just "some interface exists", so the
+# panel does not come up before the address the admin will connect to is up.
+# network.target is ordered very early and is not enough on its own.
+Wants=network-online.target
+After=network-online.target
+
+# Stop hammering restarts after repeated failures instead of looping forever.
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
+
+# webux manages services, packages, users and the firewall on this host, so it
+# runs as root by design. Do not "harden" this into an unprivileged user — it
+# would stop being able to do its job. Because the process is root and needs
+# broad access to the host (it spawns shells, edits config files and can browse
+# /home via files.root), the usual ProtectSystem=/ProtectHome=/NoNewPrivileges=
+# sandbox is deliberately NOT applied here: it would break core features.
 User=root
 Group=root
-ExecStart=/usr/local/bin/webux
+
+# --config is the ONLY way to tell the binary where its config lives. The
+# WEBUX_CONFIG environment variable is not read (see internal/config/config.go,
+# which honours only WEBUX_LISTEN_ADDR, WEBUX_DATA_DIR, WEBUX_BYPASS_TOKEN and
+# WEBUX_AUTH_DISABLED), so it must not be used here.
+ExecStart=/usr/local/bin/webux --config /etc/webux/config.yaml
+
 Restart=on-failure
 RestartSec=5s
 
 # Data and config
+# WEBUX_DATA_DIR is honoured by the binary. Keep it in step with data_dir in
+# /etc/webux/config.yaml. StateDirectory creates /var/lib/webux automatically
+# (and relabels it under SELinux) should the package scripts be bypassed.
+# StateDirectoryMode must be set explicitly: systemd's default is 0755, which
+# would silently undo the 0750 the package scripts apply.
 Environment=WEBUX_DATA_DIR=/var/lib/webux
-Environment=WEBUX_CONFIG=/etc/webux/config.yaml
+StateDirectory=webux
+StateDirectoryMode=0750
 
 # Logging
+# journald only — do not also write to a file, which would bypass log rotation.
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=webux

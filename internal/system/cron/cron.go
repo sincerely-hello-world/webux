@@ -23,16 +23,16 @@ const (
 
 // Job is a single crontab entry.
 type Job struct {
-	ID         string    `json:"id"`          // stable identifier: source+line
-	Owner      string    `json:"owner"`       // user the job runs as
-	Schedule   string    `json:"schedule"`    // e.g. "*/5 * * * *" or "@daily"
-	Command    string    `json:"command"`
-	Comment    string    `json:"comment"`     // inline comment if present
-	SourceType Source    `json:"source_type"`
-	SourceFile string    `json:"source_file"`
-	LineNumber int       `json:"line_number"`
+	ID         string     `json:"id"`       // stable identifier: source+line
+	Owner      string     `json:"owner"`    // user the job runs as
+	Schedule   string     `json:"schedule"` // e.g. "*/5 * * * *" or "@daily"
+	Command    string     `json:"command"`
+	Comment    string     `json:"comment"` // inline comment if present
+	SourceType Source     `json:"source_type"`
+	SourceFile string     `json:"source_file"`
+	LineNumber int        `json:"line_number"`
 	NextRun    *time.Time `json:"next_run,omitempty"` // best-effort; nil if uncalculable
-	Enabled    bool      `json:"enabled"`
+	Enabled    bool       `json:"enabled"`
 }
 
 // Manager handles all crontab sources.
@@ -251,8 +251,6 @@ func (m *Manager) updateUserJob(old, updated Job) (string, error) {
 	}
 	return fmt.Sprintf("# User crontab for %s updated at line %d", old.Owner, old.LineNumber), nil
 }
-
-
 
 // --- parsers ----------------------------------------------------------------
 

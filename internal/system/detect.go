@@ -15,14 +15,14 @@ type HostInfo struct {
 	InitSystem string // "systemd" | "openrc" | "sysvinit" | "unknown"
 
 	// Optional tools present on PATH
-	HasDocker        bool
-	HasPodman        bool
-	HasAnsible       bool
-	HasPuppet        bool
-	HasFacter        bool
-	HasUFW           bool
-	HasNFTables      bool
-	HasIPTables      bool
+	HasDocker   bool
+	HasPodman   bool
+	HasAnsible  bool
+	HasPuppet   bool
+	HasFacter   bool
+	HasUFW      bool
+	HasNFTables bool
+	HasIPTables bool
 }
 
 // Detect probes the host and returns a HostInfo.

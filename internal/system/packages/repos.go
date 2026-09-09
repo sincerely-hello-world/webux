@@ -14,16 +14,16 @@ import (
 
 // Repo represents a configured package repository.
 type Repo struct {
-	ID       string `json:"id"`       // unique identifier for this entry
-	Name     string `json:"name"`     // human-readable name
-	URL      string `json:"url"`      // base URL or mirrorlist path
-	Enabled  bool   `json:"enabled"`
-	File     string `json:"file"`     // config file path on disk
-	Line     int    `json:"line"`     // line number in file (for editing)
-	Keyring  string `json:"keyring,omitempty"` // GPG key ID or path
-	Section  string `json:"section,omitempty"` // apt: main/universe/contrib etc
-	Extra    string `json:"extra,omitempty"`   // any extra options (arch=, etc)
-	Source   string `json:"source"`   // "pacman" | "apt" | "dnf" | "flatpak-remote"
+	ID      string `json:"id"`   // unique identifier for this entry
+	Name    string `json:"name"` // human-readable name
+	URL     string `json:"url"`  // base URL or mirrorlist path
+	Enabled bool   `json:"enabled"`
+	File    string `json:"file"`              // config file path on disk
+	Line    int    `json:"line"`              // line number in file (for editing)
+	Keyring string `json:"keyring,omitempty"` // GPG key ID or path
+	Section string `json:"section,omitempty"` // apt: main/universe/contrib etc
+	Extra   string `json:"extra,omitempty"`   // any extra options (arch=, etc)
+	Source  string `json:"source"`            // "pacman" | "apt" | "dnf" | "flatpak-remote"
 }
 
 // ── List repos ────────────────────────────────────────────────────────────

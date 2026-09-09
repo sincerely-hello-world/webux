@@ -1,23 +1,5 @@
 <div align="center">
 
-```
-        ██╗    ██╗███████╗██████╗ ██╗   ██╗██╗  ██╗
-        ██║    ██║██╔════╝██╔══██╗██║   ██║╚██╗██╔╝
-        ██║ █╗ ██║█████╗  ██████╔╝██║   ██║ ╚███╔╝ 
-        ██║███╗██║██╔══╝  ██╔══██╗██║   ██║ ██╔██╗ 
-        ╚███╔███╔╝███████╗██████╔╝╚██████╔╝██╔╝ ██╗
-         ╚══╝╚══╝ ╚══════╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
-```
-
-**A lightweight, zero-dependency web-based Linux management panel.**  
-One binary. No agents. No containers. Works on any distro.
-
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-green.svg)](LICENSE)
-[![Go 1.22+](https://img.shields.io/badge/Go-1.22+-blue.svg)](https://go.dev)
-[![Svelte 5](https://img.shields.io/badge/Svelte-5-orange.svg)](https://svelte.dev)
-
-</div>
-
 ---
 
 ## Screenshots
@@ -80,45 +62,50 @@ It is opinionated about being lightweight: no Docker required to run it, no syst
 ## Features
 
 ### System
-| Feature | Description |
-|---------|-------------|
-| **Dashboard** | Live CPU, memory, disk, load average, uptime — updates in real time over WebSocket. Includes a **health check panel** showing the server's current status at a glance |
-| **Health Checks** | Six configurable pass/fail checks run on every dashboard load: kernel age, failed services, swap pressure, disk usage, CPU load, and pending security updates. Each check expands to show detail output. Fully customisable — add, edit, or remove checks via the Settings page using any shell command |
-| **Services** | systemd/OpenRC unit management — start, stop, enable, disable, view logs. Shows all units including disabled ones |
-| **Processes** | Live `/proc` scanner — CPU%, memory, PID, user, full command line |
-| **Disks** | Block device tree, partition layout, mount usage bars. LVM-aware: shows Volume Groups, free space, and offers **online filesystem extension** (ext3/4, XFS, Btrfs) when VG free space is available — no reboot required |
-| **Users & Groups** | Full CRUD for Linux users and groups via `useradd`/`usermod`/`groupadd` |
+
+| Feature                  | Description                                                                                                                                                                                                                                                                                              |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dashboard**      | Live CPU, memory, disk, load average, uptime — updates in real time over WebSocket. Includes a**health check panel** showing the server's current status at a glance                                                                                                                              |
+| **Health Checks**  | Six configurable pass/fail checks run on every dashboard load: kernel age, failed services, swap pressure, disk usage, CPU load, and pending security updates. Each check expands to show detail output. Fully customisable — add, edit, or remove checks via the Settings page using any shell command |
+| **Services**       | systemd/OpenRC unit management — start, stop, enable, disable, view logs. Shows all units including disabled ones                                                                                                                                                                                       |
+| **Processes**      | Live`/proc` scanner — CPU%, memory, PID, user, full command line                                                                                                                                                                                                                                      |
+| **Disks**          | Block device tree, partition layout, mount usage bars. LVM-aware: shows Volume Groups, free space, and offers**online filesystem extension** (ext3/4, XFS, Btrfs) when VG free space is available — no reboot required                                                                            |
+| **Users & Groups** | Full CRUD for Linux users and groups via`useradd`/`usermod`/`groupadd`                                                                                                                                                                                                                             |
 
 ### Network
-| Feature | Description |
-|---------|-------------|
-| **Ports & Sockets** | Reads `/proc/net/tcp*`, `/proc/net/udp*` directly — no `ss` or `netstat` needed. Cross-references `/proc/<pid>/fd` to show owning process. Enriches with systemd socket unit names |
-| **Interfaces** | Network interface list with live bandwidth sparklines (SSE streaming) |
-| **Firewall** | ufw, nftables, and iptables rule viewer and management |
+
+| Feature                   | Description                                                                                                                                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Ports & Sockets** | Reads`/proc/net/tcp*`, `/proc/net/udp*` directly — no `ss` or `netstat` needed. Cross-references `/proc/<pid>/fd` to show owning process. Enriches with systemd socket unit names |
+| **Interfaces**      | Network interface list with live bandwidth sparklines (SSE streaming)                                                                                                                        |
+| **Firewall**        | ufw, nftables, and iptables rule viewer and management                                                                                                                                       |
 
 ### Applications
-| Feature | Description |
-|---------|-------------|
-| **Containers** | Docker and Podman via their Unix sockets — list, start, stop, remove |
-| **Databases** | Auto-detect MySQL/MariaDB, PostgreSQL, Redis. Inline query panel |
-| **Webservers** | Nginx, Apache, Caddy — status, config editor, reload, virtual host list |
-| **Packages** | pacman, apt, dnf/yum — install, remove, upgrade, search. Flatpak support. **Repository management**: add/remove/enable/disable repos, manage Flatpak remotes |
-| **Files** | Full file browser with inline editor and save-to-disk |
-| **Cron** | System and per-user crontab viewer and editor |
+
+| Feature              | Description                                                                                                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Containers** | Docker and Podman via their Unix sockets — list, start, stop, remove                                                                                              |
+| **Databases**  | Auto-detect MySQL/MariaDB, PostgreSQL, Redis. Inline query panel                                                                                                   |
+| **Webservers** | Nginx, Apache, Caddy — status, config editor, reload, virtual host list                                                                                           |
+| **Packages**   | pacman, apt, dnf/yum — install, remove, upgrade, search. Flatpak support.**Repository management**: add/remove/enable/disable repos, manage Flatpak remotes |
+| **Files**      | Full file browser with inline editor and save-to-disk                                                                                                              |
+| **Cron**       | System and per-user crontab viewer and editor                                                                                                                      |
 
 ### Automation
-| Feature | Description |
-|---------|-------------|
+
+| Feature           | Description                                                                                                                                                                                                                                                   |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Ansible** | Scans a configurable playbook directory. Parses declared variables (`vars:`, `vars_prompt:`) and renders input boxes. Runs playbooks with live SSE output streaming. If Ansible is not installed, offers one-click install via the native package manager |
-| **Puppet** | Reads puppet.conf, views facts, catalog status, last run report. Supports AIO (`/opt/puppetlabs/bin/puppet`) and distro package installs |
+| **Puppet**  | Reads puppet.conf, views facts, catalog status, last run report. Supports AIO (`/opt/puppetlabs/bin/puppet`) and distro package installs                                                                                                                    |
 
 ### Tools
-| Feature | Description |
-|---------|-------------|
-| **Migration Template** | Snapshots everything needed to replicate a server: ports, services, databases, webserver vhosts, cron, users, firewall rules, env vars, Puppet facts. Exports as Markdown checklist, annotated YAML, or Ansible playbook skeleton |
-| **Terminal** | Full PTY terminal in the browser (xterm.js). Spawns the user's login shell. Quick-command chips configurable in settings. **Play button** in Learn Mode runs any CLI-equivalent command directly in the terminal |
-| **AI Assistant** | Ollama-first (self-hosted, no API key needed). Includes a setup wizard, model browser with RAM requirements, and one-click model pull with progress streaming. Also supports OpenAI, Anthropic, and any OpenAI-compatible endpoint. Every chat message automatically injects live system context (CPU, RAM, failed services, open ports) |
-| **Learn Mode** | Every action emits its CLI shell equivalent to a collapsible pane at the bottom of every page. Each command has a **▶ play button** that runs it in the terminal — navigate to the terminal automatically if needed |
+
+| Feature                      | Description                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Migration Template** | Snapshots everything needed to replicate a server: ports, services, databases, webserver vhosts, cron, users, firewall rules, env vars, Puppet facts. Exports as Markdown checklist, annotated YAML, or Ansible playbook skeleton                                                                                                        |
+| **Terminal**           | Full PTY terminal in the browser (xterm.js). Spawns the user's login shell. Quick-command chips configurable in settings.**Play button** in Learn Mode runs any CLI-equivalent command directly in the terminal                                                                                                                    |
+| **AI Assistant**       | Ollama-first (self-hosted, no API key needed). Includes a setup wizard, model browser with RAM requirements, and one-click model pull with progress streaming. Also supports OpenAI, Anthropic, and any OpenAI-compatible endpoint. Every chat message automatically injects live system context (CPU, RAM, failed services, open ports) |
+| **Learn Mode**         | Every action emits its CLI shell equivalent to a collapsible pane at the bottom of every page. Each command has a**▶ play button** that runs it in the terminal — navigate to the terminal automatically if needed                                                                                                               |
 
 ---
 
@@ -126,14 +113,14 @@ It is opinionated about being lightweight: no Docker required to run it, no syst
 
 The dashboard includes a real-time health panel that runs six checks on every load:
 
-| Check | Pass condition | Detail on expand |
-|-------|---------------|------------------|
-| Kernel / uptime | Uptime under 90 days | Shows uptime, kernel version |
-| System services | No failed systemd units | Lists any failed unit names |
-| Memory / swap | Swap usage under 75% | Shows RAM and swap used/total |
-| Disk usage | All real filesystems under 80% | Lists over-threshold mounts |
-| CPU load | 15-min load under CPU core count | Shows load avg and core count |
-| Security updates | No pending security patches | Runs distro-appropriate check |
+| Check            | Pass condition                   | Detail on expand              |
+| ---------------- | -------------------------------- | ----------------------------- |
+| Kernel / uptime  | Uptime under 90 days             | Shows uptime, kernel version  |
+| System services  | No failed systemd units          | Lists any failed unit names   |
+| Memory / swap    | Swap usage under 75%             | Shows RAM and swap used/total |
+| Disk usage       | All real filesystems under 80%   | Lists over-threshold mounts   |
+| CPU load         | 15-min load under CPU core count | Shows load avg and core count |
+| Security updates | No pending security patches      | Runs distro-appropriate check |
 
 Checks are fully configurable in **Settings → Health Checks**. Each check is a shell command where exit code 0 = pass and non-zero = fail. Add your own checks for anything that matters on your servers — a running daemon, a reachable endpoint, a file's existence, a certificate's expiry date.
 
@@ -155,6 +142,7 @@ auth:
 ```
 
 Your SSO system redirects users to:
+
 ```
 http://yourserver:8989/auth/bypass?token=<token>
 ```
@@ -169,9 +157,10 @@ Webux issues a real JWT session and redirects to the dashboard. The token can al
 # Build from source
 git clone https://github.com/brendan4linux/webux
 cd webux
+mise install             # toolchain pinned in mise.toml (go / air / nub / goreleaser)
 go mod tidy
-make build-full          # CGO enabled — supports all password hash types
-sudo WEBUX_DATA_DIR=/var/lib/webux ./build/webux-full
+mise run build           # static (CGO_ENABLED=0), includes mysql + postgres drivers
+sudo WEBUX_DATA_DIR=/var/lib/webux ./build/webux
 
 # Open — login with your Linux username and password
 open https://localhost:8989
@@ -180,33 +169,38 @@ open https://localhost:8989
 ### Install as a service
 
 ```bash
-sudo make install        # installs binary + systemd unit
+mise run install         # builds, then installs binary + systemd unit (sudo per command, run as a normal user)
 sudo systemctl enable --now webux
 ```
 
 ### Development (no auth)
 
 ```bash
-sudo WEBUX_DATA_DIR=/tmp/webux-data ./build/webux-full --no-auth
+sudo WEBUX_DATA_DIR=/tmp/webux-data ./build/webux --no-auth
 ```
 
 ---
 
-## Build targets
+## Build & packaging tasks (mise)
+
+Every command lives in `mise.toml` — there is no Makefile and no justfile.
 
 ```bash
-make build          # Current arch, no DB drivers, CGO_ENABLED=1
-make build-full     # All DB drivers (mysql + postgres), CGO_ENABLED=1
-make build-pam      # Full PAM auth + all DB drivers (requires libpam-dev)
+mise run build          # Current arch, CGO_ENABLED=0, with mysql + postgres drivers
+mise run build-mysql    # MySQL driver only (smaller binary)
+mise run build-postgres # PostgreSQL driver only (smaller binary)
+mise run build-pam      # Full PAM auth + all DB drivers (requires libpam-dev)
 
-make release        # Cross-compile for amd64, arm64, armv7, 386
-make release-full   # Cross-compile with all DB drivers
+mise run snapshot       # All release artifacts (deb/rpm/pkg.tar.zst/tar.gz) into build/dist/ — no git tag needed
+mise run release        # Publish the current git tag (builds + uploads to GitHub Releases)
 
-make package        # Build .deb, .rpm, .tar.gz (requires fpm: gem install fpm)
-make checksums      # SHA256 checksums for release binaries
-
-VERSION=1.0.0 make release   # Override version (strips leading v for packages)
+mise run ci             # Full gate: gofmt + go vet + go test + svelte-check + goreleaser check
+mise tasks ls           # List every available task
 ```
+
+Packaging is declarative — see `.goreleaser.yaml`. It cross-compiles amd64 / arm64 / armv7 and
+produces deb, rpm, `.pkg.tar.zst` plus two kinds of tar.gz with **no external tools**: GoReleaser's
+bundled nfpm is pure Go, so `fpm`, `rpmbuild` and `bsdtar` are not needed.
 
 ### PAM build requirements
 
@@ -223,7 +217,7 @@ sudo dnf install pam-devel
 
 ### Package runtime dependency
 
-The default build (`build-full`) uses `crypt(3)` from the system libxcrypt. This is pre-installed on every modern Linux distro. The generated `.deb` and `.rpm` declare `libxcrypt2 | libcrypt1` as a dependency — `apt install` and `dnf install` will never need to pull it because it's always already present.
+The default build uses `crypt(3)` from the system libxcrypt. This is pre-installed on every modern Linux distro. The generated `.deb` and `.rpm` declare `libxcrypt2 | libcrypt1` as a dependency — `apt install` and `dnf install` will never need to pull it because it's always already present. The PAM variant additionally needs `libpam` on the target system; it is built separately (`mise run build-pam`, or the two container scripts) and is not part of the released packages.
 
 ---
 
@@ -289,18 +283,18 @@ web/src/
 
 Webux aims for the minimum viable set of Go dependencies at runtime:
 
-| Concern | Solution | CGO? |
-|---------|----------|------|
-| HTTP routing | `go-chi/chi` | No |
-| WebSocket | `gorilla/websocket` | No |
-| SQLite | `ncruces/go-sqlite3` (WASM driver) | **No** |
-| systemd | `godbus/dbus` (no forking `systemctl`) | No |
-| PTY (terminal) | `creack/pty` | No |
-| Password hashing | `golang.org/x/crypto` (bcrypt) | No |
-| crypt(3) — yescrypt, SHA-512 | system libxcrypt via CGO | **Yes** |
-| PAM (optional) | `libpam` via CGO (`-tags pam`) | **Yes** |
-| YAML config | `gopkg.in/yaml.v3` | No |
-| Frontend | Vite + Svelte 5, embedded at build time | Dev only |
+| Concern                       | Solution                                   | CGO?          |
+| ----------------------------- | ------------------------------------------ | ------------- |
+| HTTP routing                  | `go-chi/chi`                             | No            |
+| WebSocket                     | `gorilla/websocket`                      | No            |
+| SQLite                        | `ncruces/go-sqlite3` (WASM driver)       | **No**  |
+| systemd                       | `godbus/dbus` (no forking `systemctl`) | No            |
+| PTY (terminal)                | `creack/pty`                             | No            |
+| Password hashing              | `golang.org/x/crypto` (bcrypt)           | No            |
+| crypt(3) — yescrypt, SHA-512 | system libxcrypt via CGO                   | **Yes** |
+| PAM (optional)                | `libpam` via CGO (`-tags pam`)         | **Yes** |
+| YAML config                   | `gopkg.in/yaml.v3`                       | No            |
+| Frontend                      | Vite + Svelte 5, embedded at build time    | Dev only      |
 
 Runtime: **one binary + one SQLite file**. The binary is ~20–30 MB depending on build flags.
 
@@ -336,6 +330,7 @@ WEBUX_AUTH_DISABLED="true"
 ```
 
 Settings editable in the UI (persisted to SQLite):
+
 - Web UI port
 - Ansible playbook directory and inventory file
 - Puppet config directory
@@ -357,12 +352,12 @@ When the Disks page detects LVM and a Volume Group has free space, mounted logic
 
 Supported filesystems for online (no unmount) extension:
 
-| Filesystem | Resize tool | Requires mount? |
-|------------|-------------|-----------------|
-| ext3 | `resize2fs` | No — works on unmounted too |
-| ext4 | `resize2fs` | No — works on unmounted too |
-| XFS | `xfs_growfs <mountpoint>` | **Yes** — must be mounted |
-| Btrfs | `btrfs filesystem resize max <mountpoint>` | **Yes** — must be mounted |
+| Filesystem | Resize tool                                  | Requires mount?                  |
+| ---------- | -------------------------------------------- | -------------------------------- |
+| ext3       | `resize2fs`                                | No — works on unmounted too     |
+| ext4       | `resize2fs`                                | No — works on unmounted too     |
+| XFS        | `xfs_growfs <mountpoint>`                  | **Yes** — must be mounted |
+| Btrfs      | `btrfs filesystem resize max <mountpoint>` | **Yes** — must be mounted |
 
 ---
 
@@ -370,15 +365,15 @@ Supported filesystems for online (no unmount) extension:
 
 Webux is a static binary — it runs on any Linux with kernel 3.10+.
 
-| Distro family | Package manager | Init system | Notes |
-|--------------|----------------|-------------|-------|
-| Arch / CachyOS / Manjaro | pacman | systemd | Fully tested |
-| Debian / Ubuntu 18+ | apt | systemd | .deb available |
-| RHEL / CentOS / Fedora | dnf / yum | systemd | .rpm available |
-| Alpine | apk | OpenRC | Binary works; no .apk yet |
-| Any SysV distro | any | SysV | Universal installer handles init |
+| Distro family            | Package manager | Init system | Notes                            |
+| ------------------------ | --------------- | ----------- | -------------------------------- |
+| Arch / CachyOS / Manjaro | pacman          | systemd     | Fully tested                     |
+| Debian / Ubuntu 18+      | apt             | systemd     | .deb available                   |
+| RHEL / CentOS / Fedora   | dnf / yum       | systemd     | .rpm available                   |
+| Alpine                   | apk             | OpenRC      | Binary works; no .apk yet        |
+| Any SysV distro          | any             | SysV        | Universal installer handles init |
 
-Cross-compiled architectures: **amd64, arm64, armv7, 386**
+Cross-compiled architectures: **amd64, arm64, armv7**
 
 ---
 
@@ -388,14 +383,19 @@ Cross-compiled architectures: **amd64, arm64, armv7, 386**
 # Download and run (installs binary + detects init system automatically)
 curl -fsSL https://github.com/brendan4linux/webux/releases/latest/download/install.sh | sudo sh
 
-# Or with a specific version
-sudo sh install.sh --version 1.0.0
+# Or with a specific version (use the git tag, with its leading v)
+sudo sh install.sh --version v1.0.0
 
 # Skip service setup (binary only)
 sudo sh install.sh --no-service
 ```
 
+> **Building a fork?** The script defaults to the upstream repo — `REPO="${WEBUX_REPO:-brendan4linux/webux}"`.
+> Point it at your own releases with `sudo WEBUX_REPO=<owner>/<repo> sh` (the variable must come
+> *after* `sudo`, since `sudo` clears the environment).
+
 The installer auto-detects:
+
 - CPU architecture (`uname -m`)
 - OS and package manager (`/etc/os-release`)
 - Init system (systemd → OpenRC → SysV)
@@ -415,9 +415,11 @@ rpm -i webux-1.0.0-1.x86_64.rpm
 # Arch / Manjaro / CachyOS
 pacman -U webux-1.0.0-1-x86_64.pkg.tar.zst
 
-# Universal tarball
-tar xzf webux-1.0.0-linux-amd64.tar.gz
+# Universal tarball (the "installer tree" — carries etc/webux/config.yaml too)
+tar xzf webux_1.0.0_linux_amd64.tar.gz
 sudo sh usr/local/share/webux/install.sh
+
+# Binary-only archive also exists: webux_1.0.0_linux_amd64_bin.tar.gz
 ```
 
 ---

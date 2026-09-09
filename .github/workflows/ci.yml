@@ -1,0 +1,44 @@
+name: CI
+
+# fork 上开发, 因此 push 与 pull_request 都不限定分支 (main 是上游原版, 保持不动)。
+on:
+  push:
+  pull_request:
+
+# 同一分支上的新推送取消上一次未完成的运行, 省 runner 时间。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # 读取仓库根的 mise.toml, 安装 golang / air / nub / goreleaser, 把 shim
+      # 加进 PATH 并导出 mise 的环境变量 (含 [env] 里的 CGO_ENABLED=0)。
+      # 因此后续步骤直接写裸 `mise run ...` 即可 —— CI 不需要 shell 激活。
+      - name: Install toolchain via mise
+        uses: jdx/mise-action@v4
+
+      # Node **不在** mise 的管理范围内: 版本由 .node-version 锁定 (24 LTS)、
+      # 由 nub 自行下载到 ~/.cache/nub/, 所以 mise-action 不会缓存它。
+      # 不缓存的话每次 CI 都要重新下载约 24 MB 的 Node。
+      # nub node install 在缓存命中时是 no-op。
+      - name: Cache nub-managed Node
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/nub
+          key: ${{ runner.os }}-nub-${{ hashFiles('.node-version') }}
+
+      - name: Provision pinned Node (24 LTS)
+        run: nub node install
+
+      # 与本地调试逐字相同的一条命令。见 mise.toml 的 [tasks.ci]:
+      # gofmt 门禁 -> go vet -> go test -> svelte-check -> goreleaser check,
+      # 并以 web-ci (nub ci) 作为前置, 因为 cmd/webux 的 //go:embed dist
+      # 要求前端产物先存在。
+      - name: Run CI
+        run: mise run ci

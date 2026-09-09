@@ -45,12 +45,18 @@ apt-get install -y -qq \
     build-essential ca-certificates \
     2>/dev/null
 
-# Install Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null 2>&1
+# Install Node.js 24 LTS (Node 22 reaches EOL on 2026-07-28)
+curl -fsSL https://deb.nodesource.com/setup_24.x | bash - >/dev/null 2>&1
 apt-get install -y -qq nodejs 2>/dev/null
 
+# Install nub — the frontend is installed with nub, not npm
+# (web/ carries nub.lock and no package-lock.json, so 'npm ci' cannot work)
+npm install -g @nubjs/nub >/dev/null 2>&1
+
+# Build the frontend and sync it into cmd/webux/dist (//go:embed dist needs it)
 echo '→ Building frontend...'
-cd web && npm ci --silent && cd ..
+cd web && nub ci --silent && nub run build && cd ..
+rm -rf cmd/webux/dist && cp -r web/dist cmd/webux/dist
 
 echo '→ Building webux-pam...'
 go mod tidy
@@ -68,5 +74,8 @@ echo ""
 echo "✓ Done — build/release/webux-pam-linux-amd64"
 echo ""
 echo "Next steps:"
-echo "  ./scripts/build-packages.sh ${VERSION} amd64"
-echo "  gh release upload v${VERSION} build/packages/*.deb build/packages/*.rpm"
+echo "  GoReleaser (mise run snapshot / mise run release) generates the standard packages"
+echo "  with CGO_ENABLED=0 and does NOT build this PAM binary, so ship it yourself:"
+echo "    gh release upload v${VERSION} build/release/webux-pam-linux-amd64 --clobber"
+echo "  It needs libpam on the target system, so it is a drop-in replacement for"
+echo "  /usr/local/bin/webux rather than something the packages install."

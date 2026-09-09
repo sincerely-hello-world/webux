@@ -22,26 +22,26 @@ import (
 // HostSnapshot is a point-in-time capture of everything that would need to
 // be reproduced on a replacement host.
 type HostSnapshot struct {
-	CapturedAt    time.Time         `json:"captured_at"`
-	Hostname      string            `json:"hostname"`
-	Distro        string            `json:"distro"`
-	KernelVersion string            `json:"kernel_version"`
-	Arch          string            `json:"arch"`
+	CapturedAt    time.Time `json:"captured_at"`
+	Hostname      string    `json:"hostname"`
+	Distro        string    `json:"distro"`
+	KernelVersion string    `json:"kernel_version"`
+	Arch          string    `json:"arch"`
 
-	Ports         []ports.PortInfo  `json:"ports"`
+	Ports          []ports.PortInfo          `json:"ports"`
 	SystemdSockets []ports.SystemdSocketUnit `json:"systemd_sockets"`
 
-	EnabledServices []ServiceSummary  `json:"enabled_services"`
-	InstalledPkgs   []string          `json:"installed_packages"` // only those owning open ports
-	Databases       []DatabaseSummary `json:"databases"`
+	EnabledServices []ServiceSummary   `json:"enabled_services"`
+	InstalledPkgs   []string           `json:"installed_packages"` // only those owning open ports
+	Databases       []DatabaseSummary  `json:"databases"`
 	Webservers      []WebserverSummary `json:"webservers"`
-	CronJobs        []CronJob         `json:"cron_jobs"`
-	Users           []UserSummary     `json:"users"` // UID >= 1000
-	EnvVars         []string          `json:"env_vars"` // from /etc/environment
-	FirewallRules   []string          `json:"firewall_rules"`
+	CronJobs        []CronJob          `json:"cron_jobs"`
+	Users           []UserSummary      `json:"users"`    // UID >= 1000
+	EnvVars         []string           `json:"env_vars"` // from /etc/environment
+	FirewallRules   []string           `json:"firewall_rules"`
 
 	// Config management
-	AnsibleInventories []string `json:"ansible_inventories"`
+	AnsibleInventories []string               `json:"ansible_inventories"`
 	PuppetFacts        map[string]interface{} `json:"puppet_facts,omitempty"`
 }
 
@@ -55,7 +55,7 @@ type ServiceSummary struct {
 
 // DatabaseSummary describes a detected running database instance.
 type DatabaseSummary struct {
-	Type    string `json:"type"`    // "mysql" | "postgres" | "sqlite"
+	Type    string `json:"type"` // "mysql" | "postgres" | "sqlite"
 	Port    uint16 `json:"port"`
 	DataDir string `json:"data_dir"`
 	Version string `json:"version"`
@@ -70,7 +70,7 @@ type WebserverSummary struct {
 
 // CronJob represents a single crontab entry.
 type CronJob struct {
-	Owner    string `json:"owner"`  // "root", "system", or username
+	Owner    string `json:"owner"` // "root", "system", or username
 	Schedule string `json:"schedule"`
 	Command  string `json:"command"`
 	Source   string `json:"source"` // file path or "crontab -l <user>"
@@ -78,11 +78,11 @@ type CronJob struct {
 
 // UserSummary is a non-system user account.
 type UserSummary struct {
-	Username string `json:"username"`
-	UID      int    `json:"uid"`
-	GID      int    `json:"gid"`
-	Home     string `json:"home"`
-	Shell    string `json:"shell"`
+	Username string   `json:"username"`
+	UID      int      `json:"uid"`
+	GID      int      `json:"gid"`
+	Home     string   `json:"home"`
+	Shell    string   `json:"shell"`
 	Groups   []string `json:"groups"`
 }
 
@@ -539,7 +539,6 @@ func findVHosts(wsType, configPath string) []string {
 	}
 	return hosts
 }
-
 
 func collectCronJobs() []CronJob {
 	var jobs []CronJob
