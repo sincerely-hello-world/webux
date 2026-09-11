@@ -41,7 +41,7 @@ air = "1.67.4"
 nub = "0.9.0"
 
 # goreleaser —— 打包与分发 (取代原 fpm + 3 个手工编排的 shell 脚本):
-#   * 交叉编译 4 个目标 (linux amd64/arm64/armv7), 见 .goreleaser.yaml
+#   * 交叉编译 4 个目标 (linux amd64/386/arm64/armv7), 见 .goreleaser.yaml
 #   * nfpm 为纯 Go 实现, 生成 deb/rpm/archlinux 包, 不再需要 fpm/rpmbuild/bsdtar
 #   * 生成 tar.gz 安装树 + 纯二进制归档 + 统一的 checksums.txt
 #   * goreleaser release  --clean              发布 (需要 git tag)
@@ -375,14 +375,96 @@ echo "✓ 已安装 —— 启动: sudo systemctl start webux"
 '''
 
 [tasks.uninstall]
-description = "从本机卸载 (保留 /var/lib/webux 数据)"
+description = "从本机卸载 (删二进制/单元/配置/数据; 不碰开发环境)"
 run = '''
 #!/usr/bin/env bash
 set -euo pipefail
-sudo systemctl disable --now webux 2>/dev/null || true
-sudo rm -f /usr/local/bin/webux /usr/lib/systemd/system/webux.service
-sudo systemctl daemon-reload
-echo "✓ 已卸载 (数据保留在 /var/lib/webux)"
+
+# 本任务只处理"安装"产生的东西, 与开发环境严格隔离:
+#   删除 -> 二进制、service unit、init 脚本、/etc/webux、/var/lib/webux
+#   保留 -> build/、web/dist、cmd/webux/dist、.air、web/node_modules、
+#           /tmp/webux-data、~/.cache/nub、go build cache
+# 要清开发产物请用 `mise run clean` (独立任务)。
+
+if [ "$(id -u)" -eq 0 ]; then
+  SUDO=""
+elif command -v sudo >/dev/null 2>&1; then
+  # $SUDO 有意不加引号 —— 取值只有空串或 "sudo", 不含空格
+  SUDO="sudo"
+else
+  echo "✗ 卸载需要 root 权限, 但当前既不是 root 也没有 sudo" >&2
+  exit 1
+fi
+
+step() { printf "\n\033[1m%s\033[0m\n" "$1"; }
+ok()   { printf "  \033[32m✓\033[0m %s\n" "$*"; }
+skip() { printf "  \033[33m·\033[0m %s\n" "$*"; }
+
+# 删除系统路径。存在性用 $SUDO 判断: 非 root 读不到 /etc/webux 这类 0750
+# 目录, 普通 `[ -e ]` 会把它当成"不存在", 从而静默漏删。
+rm_sys() {
+  local p size
+  for p in "$@"; do
+    if ! $SUDO test -e "$p" && ! $SUDO test -L "$p"; then
+      continue
+    fi
+    size=$($SUDO du -sh "$p" 2>/dev/null | cut -f1)
+    if $SUDO rm -rf "$p"; then
+      ok "已删除 $p${size:+  ($size)}"
+    else
+      printf "  \033[31m✗\033[0m 删除失败: %s\n" "$p"
+    fi
+  done
+}
+
+step "1/3 停止并禁用服务"
+if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+  $SUDO systemctl disable --now webux >/dev/null 2>&1 || true
+  $SUDO systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+# OpenRC / SysV —— 命令不存在就跳过; 四个都试一遍是幂等的
+if command -v rc-service >/dev/null 2>&1; then
+  $SUDO rc-service webux stop >/dev/null 2>&1 || true
+fi
+if command -v rc-update >/dev/null 2>&1; then
+  $SUDO rc-update del webux default >/dev/null 2>&1 || true
+fi
+if command -v update-rc.d >/dev/null 2>&1; then
+  $SUDO update-rc.d -f webux remove >/dev/null 2>&1 || true
+fi
+if command -v chkconfig >/dev/null 2>&1; then
+  $SUDO chkconfig --del webux >/dev/null 2>&1 || true
+fi
+ok "服务已停止, 开机自启已移除"
+
+step "2/3 删除二进制与 service unit"
+# 两个 unit 位置都要清, 因为两条安装路径落点不同:
+#   mise run install 与 deb/rpm/pacman -> /usr/lib/systemd/system
+#   install.sh 与 tar.gz 安装树         -> /etc/systemd/system
+rm_sys \
+  /usr/local/bin/webux \
+  /usr/lib/systemd/system/webux.service \
+  /etc/systemd/system/webux.service \
+  /etc/init.d/webux \
+  /run/webux.pid \
+  /usr/local/share/webux
+
+step "3/3 删除安装时创建的配置与数据目录"
+#   /etc/webux     —— 配置 (mise run install 从 scripts/config.yaml 拷入)
+#   /var/lib/webux —— webux.db + JWT 签名密钥 + 自签证书
+# ⚠️ 删除后所有会话失效 (重装即全新状态)。要留档请先备份 webux.db。
+if $SUDO test -e /var/lib/webux/webux.db; then
+  skip "注意: /var/lib/webux/webux.db 将被一并删除, 已登录会话随之失效"
+fi
+rm_sys /etc/webux /var/lib/webux
+
+echo
+printf "\033[1m\033[32m✓ 已卸载 (含安装时创建的目录)\033[0m\n"
+echo "  · 开发环境未触碰: build/、web/dist、cmd/webux/dist、.air、web/node_modules、/tmp/webux-data"
+echo "    要清构建产物: mise run clean"
+echo "  · 跨项目缓存未触碰: ~/.cache/nub、go build cache (模块缓存另用: go clean -modcache)"
+echo
+echo "  重装: mise run install"
 '''
 
 [tasks.clean]

@@ -6,10 +6,17 @@ tmp_dir = ".air"
   # builds.tags)。不加时 mysql_stub.go (//go:build !mysql) 会让 connectMySQL 返回
   # ErrDriverNotCompiled —— dev 下能探测实例但无法执行查询, 与线上行为不符。
   cmd = 'go build -tags "mysql postgres" -o .air/webux ./cmd/webux'
-  bin = ".air/webux"
-  # 开发模式: --config /dev/null (默认配置, 端口 :8989) + --no-auth (关闭鉴权)。
+  # 二进制与启动参数写在同一条 entrypoint 里 (air 1.62+ 的写法)。
+  # 旧的 `bin` + `args_bin` 组合仍能用, 但 air 每次启动都会打印弃用警告, 故不再使用。
+  # 首元素按 root 解析, air 会自行转成绝对路径。
+  #
+  #   --config /dev/null  空文件 -> yaml.Unmarshal 不覆盖任何字段,
+  #                       internal/config.defaults() 生效, 于是监听 :8989
+  #                       (scripts/config.yaml 在 dev 下**不生效**)
+  #   --no-auth           关闭鉴权
+  #
   # data_dir 由 mise 的 dev / dev-backend 任务通过 WEBUX_DATA_DIR 注入 /tmp/webux-data。
-  args_bin = ["--config", "/dev/null", "--no-auth"]
+  entrypoint = [".air/webux", "--config", "/dev/null", "--no-auth"]
   include_ext = ["go"]
   exclude_dir = ["web", ".air", "build"]
   delay = 500
