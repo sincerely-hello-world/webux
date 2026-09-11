@@ -20,12 +20,16 @@
 #   goreleaser release --clean                  正式发布 (需要 tag + 干净工作区)
 #   mise run snapshot / mise run release        以上两者的包装
 #
-# 架构映射由 nfpm 自动完成, 与原 fpm 产物逐字一致:
-#   amd64 → deb amd64   / rpm x86_64  / pacman x86_64
-#   arm64 → deb arm64   / rpm aarch64 / pacman aarch64
-#   armv7 → deb armhf   / rpm armv7hl / pacman armv7h
+# 架构映射由 nfpm 自动完成, 与原 fpm 产物逐字一致 (以下均为实测值):
+#   amd64 → deb amd64   / rpm x86_64    / pacman x86_64
+#   386   → deb i386    / rpm i386      / pacman i686
+#   arm64 → deb arm64   / rpm aarch64   / pacman aarch64
+#   armv7 → deb armhf   / rpm armv7hl   / pacman armv7h
 #
-# 不产出 386 —— 详见 builds.targets。
+# 注意 386 三种格式居然不统一 (deb/rpm = i386, pacman = i686), 且归档名里
+# 仍然是 `386` —— 搜产物时别只 grep 一个词。
+#
+# 共 4 个架构 × 5 种文件 = 20 个产物 + 1 个 checksums (内含 20 行) = 21。
 # ═══════════════════════════════════════════════════════════════════════════
 
 version: 2
@@ -84,11 +88,27 @@ builds:
       - -X main.commit={{ .Commit }}
       - -X main.date={{ .Date }}
 
-    # 只做 linux。不产出 386 (i386/i686) —— 目标平台里没有它,
-    # scripts/install.sh 的 detect_arch() 也已同步移除该分支。
+    # 只做 linux，四个目标 × 五种文件 = 20 个产物 (再加 checksums 共 21)。
+    #
+    # linux_386 → GOARCH=386。GoReleaser 会把它规范化成内部目标
+    # linux_386_sse2 (即 GO386=sse2, Go 自身的默认值, 需要 P4+ 级别的 CPU;
+    # 真正的 486/386 需改用 linux_386_softfloat), 但**对外名字仍按 GOARCH**
+    # 取 `386`: 归档名是 ..._linux_386.tar.gz, 中间目录叫 webux_linux_386_sse2。
+    #   ⚠️ 三种包格式的架构名居然不统一 (实测):
+    #        deb    → i386
+    #        rpm    → i386      (不是 i686!)
+    #        pacman → i686
+    #   rpm 的 i386 在 i686 系统上可正常安装 (rpm 的向后兼容规则),
+    #   所以不影响使用, 只是文件名看着偏老。
+    #   scripts/install.sh 的 detect_arch() 同步识别 uname 的
+    #   i386 / i486 / i586 / i686 四种输出, 全部归到归档后缀 `386`。
+    #
     # linux_arm_7 → GOARM=7 → 上游即 armv7 (原 release-armv7 目标)。
+    # 刻意**不含 armv6** —— GoReleaser 没有 linux_arm_6 目标, 旧链路里
+    # armv6 也只是半途支持且从未产出过产物。
     targets:
       - linux_amd64_v1
+      - linux_386
       - linux_arm64
       - linux_arm_7
 

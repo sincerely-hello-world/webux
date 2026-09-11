@@ -45,16 +45,23 @@ fi
 printf "\n${BOLD}  Webux Linux Management Panel — Installer${NC}\n\n"
 
 # ── Detect architecture ───────────────────────────────────
-# Only the architectures .goreleaser.yaml actually builds for (builds.targets).
-# 386 / armv6 used to be listed here but nothing ever produced those binaries,
-# so the only possible outcome was a 404 further down.
+# Must stay in sync with .goreleaser.yaml -> builds.targets.
+# The value echoed here is the GoReleaser {{ .Arch }} suffix, which is what the
+# release asset name actually contains — NOT the distro package arch name.
+# For 32-bit x86 those differ, and not even consistently: the tar.gz archives say
+# `386`, while the .deb and .rpm are both `i386` and the pacman package is `i686`.
+# armv6 is deliberately absent: there is no linux_arm_6 target, so listing it
+# would only ever produce a 404 further down.
 detect_arch() {
   arch=$(uname -m)
   case "$arch" in
-    x86_64|amd64)   echo "amd64" ;;
-    aarch64|arm64)  echo "arm64" ;;
-    armv7l|armv7)   echo "armv7" ;;
-    *)              die "Unsupported architecture: $arch" ;;
+    x86_64|amd64)     echo "amd64" ;;
+    # 32-bit x86. uname reports i386/i486/i586/i686 depending on kernel and
+    # userspace; GoReleaser's GOARCH name for all of them is `386`.
+    i386|i486|i586|i686) echo "386" ;;
+    aarch64|arm64)    echo "arm64" ;;
+    armv7l|armv7)     echo "armv7" ;;
+    *)                die "Unsupported architecture: $arch" ;;
   esac
 }
 
