@@ -1,5 +1,29 @@
 <div align="center">
 
+# Webux
+
+**Self-hosted Linux server management panel — one static binary, no runtime dependencies, no telemetry.**
+
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.26-00ADD8.svg)](https://go.dev)
+[![Platforms](https://img.shields.io/badge/platforms-amd64%20%7C%20386%20%7C%20arm64%20%7C%20armv7-lightgrey.svg)](#supported-distributions-and-architectures)
+
+*A fork of [brendan4linux/webux](https://github.com/brendan4linux/webux), maintained at [sincerely-hello-world/webux](https://github.com/sincerely-hello-world/webux).*
+*Original author: **brendan4linux** — see [License](#license) for attribution.*
+
+</div>
+
+---
+
+> ### 📖 Which document should I read?
+>
+> | Document | Contents |
+> | --- | --- |
+> | **`README.md`** — this file | What Webux is, how to install it, what the released artifacts actually contain |
+> | **[`readme_new.md`](readme_new.md)** | The full developer guide (11 chapters, Chinese): toolchain, project layout, daily workflow, test gates, debugging, GoReleaser internals, deployment |
+>
+> **中文读者**：本文以英文为主，文末有一节 **[中文速览](#中文速览)**，涵盖安装、构建命令、架构与许可要点。
+
 ---
 
 ## Screenshots
@@ -128,9 +152,79 @@ Checks are fully configurable in **Settings → Health Checks**. Each check is a
 
 ## Authentication
 
-Webux supports **PAM authentication** (full system auth including LDAP, SSSD, 2FA) when built with `-tags pam`, or `/etc/shadow` + `crypt(3)` verification (supports yescrypt, SHA-512, SHA-256, bcrypt) in the default build.
+Two mutually exclusive backends, chosen at build time. **Everything published in the GitHub Releases
+is the default (shadow) build.**
 
-Sessions are **JWT** (HS256, 24-hour HttpOnly cookie). The JWT secret is auto-generated on first run and stored in SQLite.
+| Backend                    | How to get it                                                          | Build tag               | Capability                                                                   |
+| -------------------------- | ---------------------------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------- |
+| **shadow** (default) | `mise run build`, `mise run snapshot`, every deb / rpm / pacman        | —                      | Reads`/etc/shadow` and verifies the hash — local Linux accounts only     |
+| **PAM**              | `mise run build-pam`, or `scripts/build-pam-*.sh`                    | `pam` + `CGO_ENABLED=1` | The full PAM stack: LDAP, SSSD, Kerberos, TOTP/2FA — whatever `/etc/pam.d/webux` says |
+
+`webux --version` tells you which one you have:
+
+```
+webux 0.1.1 (b2483c1) built 2026-…
+auth backend: shadow (rebuild with -tags pam for full PAM support)
+```
+
+### shadow backend (default)
+
+Pure Go — no CGO, no `libxcrypt`, which is why the fully static cross-compiled binaries work:
+
+| Hash                              | Support                                              |
+| --------------------------------- | ---------------------------------------------------- |
+| yescrypt `$y$`                  | ✅ via`github.com/openwall/yescrypt-go`           |
+| SHA-512 `$6$`                   | ✅ implemented in this repo                          |
+| SHA-256 `$5$`                   | ✅ implemented in this repo                          |
+| MD5 `$1$`                       | ✅ implemented in this repo                          |
+| bcrypt `$2a$` / `$2b$`        | ✅ via`golang.org/x/crypto/bcrypt`                |
+
+Locked accounts (`*`, `!…`) are rejected, and hashes are compared in constant time.
+
+> The generated `.deb` / `.rpm` still declare `libxcrypt2 | libcrypt1 | libc6` (deb) and `libxcrypt`
+> (rpm) purely as a safety net. Those libraries ship on every modern distro, so `apt install` and
+> `dnf install` never actually have to pull anything.
+
+### PAM backend (optional, built separately)
+
+```bash
+sudo apt install libpam0g-dev      # Debian / Ubuntu
+sudo dnf install pam-devel         # RHEL / Fedora        (Arch: sudo pacman -S pam)
+
+mise run build-pam                 # -> build/webux-pam  (amd64, host build, needs the headers)
+```
+
+**PAM binaries are never part of the released packages.** `mise run snapshot` and `mise run release`
+always produce `CGO_ENABLED=0` shadow builds — `.goreleaser.yaml` contains no reference to `pam` at
+all. The PAM variant links the *target machine's* `libpam.so`, so it cannot be statically
+cross-compiled the way the other artifacts are. Concretely, PAM is:
+
+- **never packaged** — there is no `webux-pam-*.deb`, `.rpm` or `.pkg.tar.zst`;
+- **amd64 only** — both `scripts/build-pam-ubuntu.sh` and `scripts/build-pam-rhel.sh` hardcode
+  `webux-pam-linux-amd64`;
+- **distributed by hand** — not listed in `checksums.txt`, no CI job, and the two scripts only print a
+  `gh release upload …` hint when they finish.
+
+Enable it by copying the stack template (see [PAM configuration](#pam-configuration)):
+
+```bash
+sudo cp scripts/webux.pam /etc/pam.d/webux
+```
+
+> ⚠️ **Do not skip that copy.** The PAM build passes the service name `webux`, and if that stack does
+> not return `PAM_SUCCESS` it unconditionally retries with the service name `login`. In practice a
+> missing `/etc/pam.d/webux` therefore falls back to whatever `/etc/pam.d/login` allows — which is how
+> a 2FA-protected webux stack gets bypassed by a login stack without 2FA.
+>
+> The lookup order is `/etc/pam.d/webux` → `/usr/lib/pam.d/webux` → `/etc/pam.d/other` →
+> `/etc/pam.d/login`. If none of them exist, logins fail with **401** — the PAM build does *not*
+> degrade gracefully to the shadow backend.
+
+### Sessions
+
+Sessions are **JWT** (HS256, 24-hour HttpOnly cookie). The JWT secret is auto-generated on first run
+and stored in SQLite. Every API endpoint except `/auth/login` and the static assets requires a valid
+JWT, and WebSocket connections are gated the same way.
 
 ### SSO bypass token
 
@@ -147,37 +241,46 @@ Your SSO system redirects users to:
 http://yourserver:8989/auth/bypass?token=<token>
 ```
 
-Webux issues a real JWT session and redirects to the dashboard. The token can also be passed as an `X-Webux-Token` HTTP header for API access.
+Webux issues a real JWT session and redirects to the dashboard. The token can also be passed as an
+`X-Webux-Token` HTTP header for API access.
 
 ---
 
 ## Quick start
 
 ```bash
-# Build from source
-git clone https://github.com/brendan4linux/webux
+git clone https://github.com/sincerely-hello-world/webux
 cd webux
-mise install             # toolchain pinned in mise.toml (go / air / nub / goreleaser)
-go mod tidy
-mise run build           # static (CGO_ENABLED=0), includes mysql + postgres drivers
-sudo WEBUX_DATA_DIR=/var/lib/webux ./build/webux
+mise install             # pinned toolchain: Go 1.26, air, nub, goreleaser (see mise.toml)
+mise run setup           # go mod tidy + frontend deps (nub install, Node 24 LTS via .node-version)
+mise run build           # static build (CGO_ENABLED=0) with mysql + postgres drivers -> build/webux
 
-# Open — login with your Linux username and password
-open https://localhost:8989
+sudo WEBUX_DATA_DIR=/var/lib/webux ./build/webux
+# Open https://localhost:8989 and log in with your Linux username and password
 ```
+
+> The upstream repository is `brendan4linux/webux`. `scripts/install.sh` still defaults to it, so to
+> install from this fork's releases use `sudo WEBUX_REPO=<owner>/<repo> sh` (the variable must come
+> *after* `sudo`, which clears the environment).
 
 ### Install as a service
 
 ```bash
-mise run install         # builds, then installs binary + systemd unit (sudo per command, run as a normal user)
+mise run install         # builds, then installs the binary, the unit file and a config template
 sudo systemctl enable --now webux
 ```
 
-### Development (no auth)
+### Development
 
 ```bash
-sudo WEBUX_DATA_DIR=/tmp/webux-data ./build/webux --no-auth
+mise run dev             # backend hot-reload (air) + Vite dev server on :5173
+mise run test            # go test + svelte-check
+mise run ci              # exactly what GitHub Actions runs: gofmt + go vet + go test + svelte-check + goreleaser check
+sudo WEBUX_DATA_DIR=/tmp/webux-data ./build/webux --no-auth   # run with auth disabled
 ```
+
+See **[`readme_new.md`](readme_new.md)** for the full walkthrough (dev ports, inotify limits, debugging
+recipes, test coverage status, deployment options).
 
 ---
 
@@ -189,35 +292,49 @@ Every command lives in `mise.toml` — there is no Makefile and no justfile.
 mise run build          # Current arch, CGO_ENABLED=0, with mysql + postgres drivers
 mise run build-mysql    # MySQL driver only (smaller binary)
 mise run build-postgres # PostgreSQL driver only (smaller binary)
-mise run build-pam      # Full PAM auth + all DB drivers (requires libpam-dev)
+mise run build-pam      # Full PAM auth + all DB drivers (requires libpam-dev, CGO_ENABLED=1)
 
-mise run snapshot       # All release artifacts (deb/rpm/pkg.tar.zst/tar.gz) into build/dist/ — no git tag needed
+mise run snapshot       # All 21 release artifacts into build/dist/ — no git tag needed
 mise run release        # Publish the current git tag (builds + uploads to GitHub Releases)
 
 mise run ci             # Full gate: gofmt + go vet + go test + svelte-check + goreleaser check
 mise tasks ls           # List every available task
 ```
 
-Packaging is declarative — see `.goreleaser.yaml`. It cross-compiles amd64 / arm64 / armv7 and
-produces deb, rpm, `.pkg.tar.zst` plus two kinds of tar.gz with **no external tools**: GoReleaser's
-bundled nfpm is pure Go, so `fpm`, `rpmbuild` and `bsdtar` are not needed.
+Packaging is declarative — see `.goreleaser.yaml`. It cross-compiles **amd64, 386, arm64 and armv7**
+and produces deb, rpm, `.pkg.tar.zst` plus two kinds of tar.gz with **no external tools**:
+GoReleaser's bundled nfpm is pure Go, so `fpm`, `rpmbuild` and `bsdtar` are not needed.
 
-### PAM build requirements
+### What `mise run snapshot` / `mise run release` produce
 
-```bash
-# Arch/CachyOS
-sudo pacman -S pam
+4 architectures × 5 files + 1 checksum = **21 artifacts**, all `CGO_ENABLED=0` shadow builds:
 
-# Debian/Ubuntu
-sudo apt install libpam0g-dev
+| Kind            | Name                                  | Per arch | Notes                                                              |
+| --------------- | ------------------------------------- | -------- | ------------------------------------------------------------------ |
+| installer tree  | `webux_<ver>_linux_<arch>.tar.gz`   | 4        | **primary artifact** — extracts straight into `/`            |
+| binary only     | `webux_<ver>_linux_<arch>_bin.tar.gz` | 4        | one bare`webux` file, no directory prefix                        |
+| deb             | `webux_<ver>_<arch>.deb`            | 4        | amd64 / i386 / arm64 / armhf                                       |
+| rpm             | `webux-<ver>-1.<arch>.rpm`          | 4        | x86_64 / i386 / aarch64 / armv7hl                                   |
+| pacman          | `webux-<ver>-1-<arch>.pkg.tar.zst`  | 4        | x86_64 / i686 / aarch64 / armv7h                                    |
+| checksums       | `webux_<ver>_checksums.txt`         | 1        | sha256 of the 20 files above                                        |
 
-# RHEL/Fedora
-sudo dnf install pam-devel
-```
+> ⚠️ The 32-bit package arch names are **not** uniform: deb and rpm both say `i386`, pacman says
+> `i686`, while the tar.gz suffix is GoReleaser's `386`. Grep accordingly.
+>
+> Both tar.gz flavours contain the *same* binary; only the layout differs. `scripts/install.sh`
+> needs the **installer tree** (it reads `etc/webux/config.yaml` as a template), so download the one
+> without the `_bin` suffix.
 
 ### Package runtime dependency
 
-The default build uses `crypt(3)` from the system libxcrypt. This is pre-installed on every modern Linux distro. The generated `.deb` and `.rpm` declare `libxcrypt2 | libcrypt1` as a dependency — `apt install` and `dnf install` will never need to pull it because it's always already present. The PAM variant additionally needs `libpam` on the target system; it is built separately (`mise run build-pam`, or the two container scripts) and is not part of the released packages.
+The default build is pure Go and needs **no** crypt library at runtime. The generated `.deb` and
+`.rpm` nevertheless declare `libxcrypt2 | libcrypt1 | libc6` / `libxcrypt` as a dependency as a
+safety net — it is pre-installed on every modern Linux distro, so `apt install` and `dnf install`
+never actually have to pull it.
+
+The PAM variant is the only build that needs an extra runtime library (`libpam`) on the target
+system. It is built separately and is **not** part of the released packages — see
+[Authentication](#authentication).
 
 ---
 
@@ -233,15 +350,18 @@ internal/
     router.go         # chi router — all routes, middleware, auth
     handlers/         # One file per feature: services, disks, packages, ...
   auth/
-    auth.go           # JWT (HS256), SSO bypass, shadow verification
-    pam.go            # PAM via CGO (-tags pam)
-    pam_stub.go       # Shadow fallback (no CGO)
-    crypt_cgo.go      # crypt(3) via libxcrypt (yescrypt, SHA-512, etc.)
-    crypt_stub.go     # Pure Go SHA-512/256/MD5 crypt for static builds
+    auth.go           # JWT (HS256), SSO bypass, login flow, allow-list
+    shadow.go         # /etc/shadow parsing + hash verification
+    crypt_pure.go     # Pure Go crypt(3): $y$ yescrypt, $6$, $5$, $1$
+    crypt_stub.go     # !cgo build-tag shim (both paths resolve to pure Go)
+    crypt_cgo.go      # cgo build-tag shim (CGO is no longer needed for shadow)
+    pam.go            # PAM via cgo (-tags pam, needs libpam)
+    pam_stub.go       # !pam fallback to the shadow backend
+    sssd.go           # SSSD / LDAP helpers
   config/config.go    # YAML + environment variable config
   db/
     db.go             # SQLite open + migration runner
-    migrations/       # 001_init … 007_health SQL files
+    migrations/       # 001_init … 010_fix_sessions SQL files
   learn/              # CLI echo ring buffer + WebSocket broadcast
   system/
     detect.go         # Distro/init system detection
@@ -283,20 +403,20 @@ web/src/
 
 Webux aims for the minimum viable set of Go dependencies at runtime:
 
-| Concern                       | Solution                                   | CGO?          |
-| ----------------------------- | ------------------------------------------ | ------------- |
-| HTTP routing                  | `go-chi/chi`                             | No            |
-| WebSocket                     | `gorilla/websocket`                      | No            |
-| SQLite                        | `ncruces/go-sqlite3` (WASM driver)       | **No**  |
-| systemd                       | `godbus/dbus` (no forking `systemctl`) | No            |
-| PTY (terminal)                | `creack/pty`                             | No            |
-| Password hashing              | `golang.org/x/crypto` (bcrypt)           | No            |
-| crypt(3) — yescrypt, SHA-512 | system libxcrypt via CGO                   | **Yes** |
-| PAM (optional)                | `libpam` via CGO (`-tags pam`)         | **Yes** |
-| YAML config                   | `gopkg.in/yaml.v3`                       | No            |
-| Frontend                      | Vite + Svelte 5, embedded at build time    | Dev only      |
+| Concern                        | Solution                                   | CGO?          |
+| ------------------------------ | ------------------------------------------ | ------------- |
+| HTTP routing                   | `go-chi/chi`                             | No            |
+| WebSocket                      | `gorilla/websocket`                      | No            |
+| SQLite                         | `ncruces/go-sqlite3` (WASM via wazero)   | **No**  |
+| systemd                        | `godbus/dbus` (no forking `systemctl`) | No            |
+| PTY (terminal)                 | `creack/pty`                             | No            |
+| bcrypt                         | `golang.org/x/crypto`                    | No            |
+| crypt(3) — yescrypt, SHA, MD5 | `openwall/yescrypt-go` + in-repo impls   | **No**  |
+| PAM (optional build)           | `libpam` via cgo (`-tags pam`)         | **Yes** |
+| YAML config                    | `gopkg.in/yaml.v3`                       | No            |
+| Frontend                       | Vite + Svelte 5, embedded at build time    | Dev only      |
 
-Runtime: **one binary + one SQLite file**. The binary is ~20–30 MB depending on build flags.
+Runtime: **one binary + one SQLite file**. The binary is ~21 MB with `-s -w`.
 
 ---
 
@@ -361,7 +481,7 @@ Supported filesystems for online (no unmount) extension:
 
 ---
 
-## Supported distributions
+## Supported distributions and architectures
 
 Webux is a static binary — it runs on any Linux with kernel 3.10+.
 
@@ -373,7 +493,8 @@ Webux is a static binary — it runs on any Linux with kernel 3.10+.
 | Alpine                   | apk             | OpenRC      | Binary works; no .apk yet        |
 | Any SysV distro          | any             | SysV        | Universal installer handles init |
 
-Cross-compiled architectures: **amd64, arm64, armv7**
+Cross-compiled architectures: **amd64 (x86_64)**, **386 (i386/i686)**, **arm64 (aarch64)**,
+**armv7 (armhf)**. The 386 build targets `GO386=sse2`; `armv6` is not built.
 
 ---
 
@@ -381,7 +502,7 @@ Cross-compiled architectures: **amd64, arm64, armv7**
 
 ```bash
 # Download and run (installs binary + detects init system automatically)
-curl -fsSL https://github.com/brendan4linux/webux/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://github.com/sincerely-hello-world/webux/releases/latest/download/install.sh | sudo sh
 
 # Or with a specific version (use the git tag, with its leading v)
 sudo sh install.sh --version v1.0.0
@@ -390,13 +511,15 @@ sudo sh install.sh --version v1.0.0
 sudo sh install.sh --no-service
 ```
 
-> **Building a fork?** The script defaults to the upstream repo — `REPO="${WEBUX_REPO:-brendan4linux/webux}"`.
-> Point it at your own releases with `sudo WEBUX_REPO=<owner>/<repo> sh` (the variable must come
-> *after* `sudo`, since `sudo` clears the environment).
+> **Installing from your own fork?** The script defaults to the upstream repo —
+> `REPO="${WEBUX_REPO:-brendan4linux/webux}"`. Point it at other releases with
+> `sudo WEBUX_REPO=<owner>/<repo> sh` (the variable must come *after* `sudo`, since `sudo` clears
+> the environment).
 
 The installer auto-detects:
 
-- CPU architecture (`uname -m`)
+- CPU architecture (`uname -m`) → `amd64` / `386` / `arm64` / `armv7`, matching the release asset
+  suffixes
 - OS and package manager (`/etc/os-release`)
 - Init system (systemd → OpenRC → SysV)
 
@@ -406,14 +529,14 @@ The installer auto-detects:
 
 ```bash
 # Debian / Ubuntu
-dpkg -i webux_1.0.0_amd64.deb
-# Service is enabled and started automatically via post-install hook
+sudo dpkg -i webux_1.0.0_amd64.deb          # 32-bit: webux_1.0.0_i386.deb
+# Service is enabled and started automatically via the post-install hook
 
 # RHEL / Fedora / CentOS
-rpm -i webux-1.0.0-1.x86_64.rpm
+sudo rpm -i webux-1.0.0-1.x86_64.rpm        # 32-bit: webux-1.0.0-1.i386.rpm
 
 # Arch / Manjaro / CachyOS
-pacman -U webux-1.0.0-1-x86_64.pkg.tar.zst
+sudo pacman -U webux-1.0.0-1-x86_64.pkg.tar.zst   # 32-bit: ...-1-i686.pkg.tar.zst
 
 # Universal tarball (the "installer tree" — carries etc/webux/config.yaml too)
 tar xzf webux_1.0.0_linux_amd64.tar.gz
@@ -422,11 +545,15 @@ sudo sh usr/local/share/webux/install.sh
 # Binary-only archive also exists: webux_1.0.0_linux_amd64_bin.tar.gz
 ```
 
+Upgrades keep your config (dpkg conffiles / `%config(noreplace)` / pacman `backup=`), and removal
+keeps `/var/lib/webux` — only `apt purge` clears it.
+
 ---
 
 ## PAM configuration
 
-When built with `-tags pam`, Webux uses `/etc/pam.d/webux`:
+Only relevant to the PAM build (`mise run build-pam`). The template lives in the repo as
+`scripts/webux.pam`:
 
 ```
 # /etc/pam.d/webux
@@ -438,9 +565,22 @@ account    required     pam_unix.so
 account    optional     pam_sss.so
 ```
 
-Install: `sudo cp scripts/webux.pam /etc/pam.d/webux`
+Install it — **this step is required, not optional**:
 
-Without the PAM build tag, Webux reads `/etc/shadow` directly using `crypt(3)` — supporting yescrypt (`$y$`), SHA-512 (`$6$`), SHA-256 (`$5$`), and bcrypt (`$2b$`). SHA-512 and SHA-256 are implemented in pure Go so static cross-compiled binaries work without libxcrypt. Yescrypt (Arch, Ubuntu 24+) requires the CGO build.
+```bash
+sudo cp scripts/webux.pam /etc/pam.d/webux
+```
+
+No installer, package or archive ships this file, so it is always a manual copy. Skipping it makes
+Webux fall back to `/etc/pam.d/login`, which can silently bypass 2FA configured in the webux stack —
+see [Authentication](#authentication) for the details.
+
+### Without PAM
+
+The default build reads `/etc/shadow` directly using a pure-Go `crypt(3)` implementation, supporting
+yescrypt (`$y$`), SHA-512 (`$6$`), SHA-256 (`$5$`), MD5 (`$1$`) and bcrypt (`$2b$`). No
+`libxcrypt` and no CGO are needed, which is what makes the static cross-compiled binaries work
+everywhere.
 
 ---
 
@@ -452,11 +592,87 @@ Without the PAM build tag, Webux reads `/etc/shadow` directly using `crypt(3)` �
 - The SSO bypass token grants full admin access — treat it like a root password.
 - All API endpoints (except `/auth/login` and static assets) require a valid JWT. WebSocket connections are also gated.
 - No data is sent to external services unless you configure an AI provider API key.
+- If you build with `-tags pam`, always install `/etc/pam.d/webux`. Without it the PAM build retries
+  against `/etc/pam.d/login`, which can bypass 2FA configured for webux — see
+  [Authentication](#authentication).
 
 ---
 
 ## License
 
-**AGPL-3.0-or-later**
+**GNU Affero General Public License v3.0** (AGPL-3.0). The full text is in [`LICENSE`](LICENSE).
 
-If you run a modified version of Webux as a network service, you must make the source available to users of that service.
+```
+Copyright (C) 2026 brendan4linux <brendan4linux@gmail.com>
+```
+
+Webux was created by **[brendan4linux](https://github.com/brendan4linux)** and is released under the
+AGPL-3.0. This repository is a fork maintained at
+[sincerely-hello-world/webux](https://github.com/sincerely-hello-world/webux); the original copyright
+notice and license are retained unchanged, and all modifications stay under the same license.
+
+Because AGPL-3.0 is a strong copyleft network license: **if you run a modified version of Webux as a
+network service, you must offer the complete corresponding source of your version to its users.**
+
+---
+
+## 中文速览
+
+> 这一节只是英文正文的摘要。细节请以英文部分与 **[`readme_new.md`](readme_new.md)**（完整开发指南）为准。
+
+**Webux 是什么** —— 自托管的 Linux 服务器管理面板：单个静态二进制，内嵌 Web UI 与 SQLite，
+没有运行时依赖、不需要 Docker、没有遥测。同时带 **Learn Mode**：每个操作都会显示等价的 shell
+命令，可直接在面板内的终端里执行。
+
+**安装（三条路）**
+
+```bash
+# A. 源码构建
+mise install && mise run setup && mise run build
+sudo WEBUX_DATA_DIR=/var/lib/webux ./build/webux      # https://localhost:8989
+
+# B. 装系统包（服务会自动 enable + restart）
+sudo dpkg -i  webux_<ver>_amd64.deb
+sudo rpm  -i  webux-<ver>-1.x86_64.rpm
+sudo pacman -U webux-<ver>-1-x86_64.pkg.tar.zst
+
+# C. 在线安装脚本（识别架构与 init 系统）
+sudo sh install.sh --version v0.1.1
+```
+
+**常用 mise 命令**
+
+| 命令                  | 作用                                                         |
+| --------------------- | ------------------------------------------------------------ |
+| `mise run build`    | 构建前端 + 后端 →`build/webux`（`CGO_ENABLED=0`）        |
+| `mise run dev`      | 后端热重载 + 前端 dev server（:5173 / :8989）               |
+| `mise run test`     | `go test` + `svelte-check`                               |
+| `mise run ci`       | 与 GitHub Actions 逐字等价的完整门禁                         |
+| `mise run snapshot` | 本地产出**全部 21 个**发布产物 →`build/dist/`（无需 tag） |
+| `mise run release`  | 用当前 git tag 正式发布（需要 tag 在 HEAD 且工作区干净）      |
+| `mise run install`  | 安装到 `/usr/local/bin` + systemd 单元                      |
+| `mise run build-pam` | PAM 鉴权变体（需 libpam 开发头，**不进 GoReleaser**）    |
+
+**架构与产物**
+
+四个架构 **amd64 / 386 / arm64 / armv7**（不含 armv6）× 5 种文件 + 1 个校验和 = **21 个产物**。
+两套 tar.gz（安装树 / 纯二进制）+ deb + rpm + `.pkg.tar.zst`，全部由 GoReleaser + nfpm
+（纯 Go）生成，不需要 `fpm` / `rpmbuild` / `bsdtar`。
+
+> ⚠️ 32 位包的架构名不统一：**deb 与 rpm 都叫 `i386`，pacman 叫 `i686`**，而 tar.gz 后缀是
+> `386`。搜产物时别只 grep 一个词。
+
+**鉴权（最容易误解的一点）**
+
+- 默认（也就是**所有发布产物**）是 **shadow** 鉴权：纯 Go 的 `crypt(3)`，支持 yescrypt / SHA-512 /
+  SHA-256 / MD5 / bcrypt，**不需要 CGO，也不需要 libxcrypt**。
+- **PAM 变体完全不在发布产物里** —— 没有 PAM 包、没有校验和条目、只有 amd64 裸二进制，且要自己
+  `gh release upload`。想用就 `mise run build-pam`。
+- 用 PAM 时**必须** `sudo cp scripts/webux.pam /etc/pam.d/webux`：否则会回退到 `/etc/pam.d/login`，
+  可能**静默绕过 2FA**（仓库里没有任何安装路径会帮你复制这个文件，它是个孤儿模板）。
+
+**许可**
+
+**AGPL-3.0**，全文见 [`LICENSE`](LICENSE)。原作者 **brendan4linux**，本仓库
+[sincerely-hello-world/webux](https://github.com/sincerely-hello-world/webux) 是它的 fork，
+版权声明与许可证原样保留。把修改版作为网络服务对外提供时，**必须向使用者提供对应源码**。

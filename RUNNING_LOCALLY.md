@@ -1,11 +1,19 @@
 # Running Webux Locally
 
+> New here? Read **[`README.md`](README.md)** first (what Webux is, which artifacts exist, how to
+> install it). This file is the short "get it running on my machine" walkthrough.
+>
+> For the deeper guide — project layout, ports, test gates, debugging recipes, deployment — see
+> **[`readme_new.md`](readme_new.md)** chapters 6 (first-time setup) and 7 (daily development).
+>
+> **中文读者**：本文是"本机跑起来"的最短路径；完整开发指南见 **[`readme_new.md`](readme_new.md)**。
+
 ## Prerequisites
 
 | Tool    | Version | Install |
 |---------|---------|---------|
 | mise    | ≥ 2026.8 | https://mise.jdx.dev — installs the pinned Go / air / nub / goreleaser toolchain from `mise.toml` |
-| Go      | ≥ 1.22  | via mise (`mise install`; version pinned in `mise.toml`) |
+| Go      | 1.26.5  | via mise (`mise install`; version pinned in `mise.toml`) |
 | Node    | 24 LTS  | not installed by hand — `nub` downloads it per the repo-root `.node-version` |
 | nub     | ≥ 0.9   | https://nubjs.com (or `mise install`, see `mise.toml`) — provisions Node itself |
 
@@ -18,13 +26,16 @@
 ## First-time setup
 
 ```bash
-# 1. Resolve Go dependencies
-go mod tidy
+# 1. Install the pinned toolchain (go / air / nub / goreleaser)
+mise install
 
-# 2. Build frontend, copy dist, build binary — in one command:
+# 2. Install project deps: go mod tidy + frontend (nub install)
+mise run setup
+
+# 3. Build frontend, copy dist, build binary — in one command:
 mise run build
 
-# 3. Run
+# 4. Run
 mkdir -p /tmp/webux-data
 WEBUX_DATA_DIR=/tmp/webux-data ./build/webux
 ```
