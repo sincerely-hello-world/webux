@@ -1,18 +1,43 @@
 name: Release
 
-# ⏸ 待命状态 —— 本文件已完整写好, 但刻意不自动触发。
+# 发布只发生在 feature 分支这一条线上 —— 见下方 jobs.release.if 的分支守卫。
 #
-# 目前只启用 .github/workflows/ci.yml。要启用「打 tag 自动发版」,
-# 把下面的注释块换成非注释的 `on:` 即可:
+# 触发方式有两条, 都由下面的分支守卫把关:
 #
-# on:
-#   push:
-#     tags:
-#       - "v*"
-#   workflow_dispatch:
+#   1) workflow_dispatch —— 网页 Actions → Release → Run workflow 手动触发。
+#      在 "Use workflow from" 里选 **feature/mise-just-nub-toolchain 分支**
+#      (不要选 tag) —— 选分支才通得过下面的守卫。
+#      ⚠️ 走 dispatch API 触发需要令牌具备 actions: write。
 #
+#   2) repository_dispatch —— 供脚本 / 细粒度令牌触发:
+#          gh api repos/<owner>/<repo>/dispatches -f event_type=release
+#      ✅ 它只需要 contents: write (比上面那条要求低得多)。
+#      ✅ 它的 GITHUB_REF = **默认分支**, GITHUB_SHA = 默认分支末次提交。
+#         本仓库的默认分支就是 feature/mise-just-nub-toolchain, 所以既自动
+#         通过下面的分支守卫, 也自动满足 GoReleaser 的 HEAD == tag 要求
+#         (前提: 默认分支顶端正好是 tag 所指的那次提交)。
+#
+#   刻意**不开** `push: tags` 自动发版: tag 只可能落在 feature 这条线上,
+#   自动触发的收益为零, 风险却是误触发。
+#
+# ⚠️ 前置条件 (GitHub 的硬性规定, 不是本文件能绕过的):
+#    「workflow_dispatch 只有在**默认分支**上存在该 workflow 文件时才会触发。」
+#    本仓库已把默认分支设为 feature/mise-just-nub-toolchain (main 保持上游原版
+#    不动), 所以该条件已满足, "Run workflow" 按钮可用 —— 早先 main 不含
+#    .github/workflows/ 导致按钮不出现、dispatch API 404 的问题已随之消失。
+#    顺带一提: 这也让「tag 提交相对默认分支新增了 .github/workflows/」不再成立,
+#    于是 GITHUB_TOKEN 的 Workflows 权限担忧也随之消失。
+#    (repository_dispatch 没有这条限制 —— 它本就是"非 ref 触发"的事件。)
+#
+# 选分支不影响 GoReleaser: 它只要求「所选 ref 的顶端提交 == tag 所指提交」
+# (见下方 Run release 步骤里的源码依据), 与 ref 叫什么名字无关。
+# ⚠️ 但这个条件会被普通提交破坏 —— 分支一旦往前走, 就必须先把 tag 移过去。
 on:
   workflow_dispatch:
+  # 只接受这一种 event_type, 避免任意 dispatch 都能触发发版。
+  # 用法: gh api repos/<owner>/<repo>/dispatches -f event_type=release
+  repository_dispatch:
+    types: [release]
 
 permissions:
   contents: write
@@ -20,6 +45,12 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
+    # ★ 唯一的准入条件: 只允许 feature 分支。
+    #   条件为假时 GitHub 把这个 job 标记为 skipped —— 不进队列、不占 runner,
+    #   也不会留下半个 release, 比"先进来再报错"干净得多。
+    #   ⚠️ jobs.<job_id>.if 可用的上下文只有 github / needs / vars / inputs,
+    #   **没有 env**, 所以分支名只能在这里写死 (改分支名记得同步改这一行)。
+    if: github.ref_name == 'feature/mise-just-nub-toolchain'
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -45,10 +76,20 @@ jobs:
       # 与本地 `mise run release` 逐字相同 (goreleaser release --clean),
       # 其中 before.hooks 会调用 `mise run web-ci` 先构建前端。
       #
-      # ⚠️ goreleaser release 要求 tag 就在 HEAD 且工作区干净:
-      #    * 手动触发时, 请在 GitHub 的 "Use workflow from" 里**选择对应的 tag**
-      #      (例如 v0.1.1), 否则 checkout 拿到的是分支, 没有 tag 会直接报错。
-      #    * 启用 push: tags 之后, 这个条件自然满足。
+      # ⚠️ goreleaser release 的两条硬性要求 (源码 internal/pipe/git/git.go):
+      #    1. 工作区干净 —— `CheckDirty`, CI 上 checkout 出来的树天然满足;
+      #    2. **HEAD 必须正好是 tag** —— 它会执行
+      #         git describe --exact-match --tags --match <最近的可达 tag>
+      #       失败即 ErrWrongRef ("git tag X does not point to the current commit")。
+      #       注意这跟 ref 是分支还是 tag **无关**: 只要所选 ref 的顶端提交
+      #       就是 tag 所指的那个提交, 就通过。
+      #    ⇒ 从 feature 分支触发是可行的, 前提是分支顶端正好是 v0.1.1 那个提交。
+      #      分支一旦又往前提交 (例如改了本文件), 必须先把 tag 移过来:
+      #          git tag -f v0.1.1 && git push -f origin v0.1.1
+      #      否则 release 会在 git 管道里直接 ErrWrongRef 失败。
+      #
+      # GITHUB_TOKEN 由 Actions 自动签发, 权限就是文件顶部的 contents: write ——
+      # 不需要配置任何 secret / PAT, 也不会过期。
       - name: Run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	_ "embed"
 	"fmt"
+	"io"
+	"os"
 
 	_ "github.com/ncruces/go-sqlite3/driver"
 	_ "github.com/ncruces/go-sqlite3/embed"
@@ -39,8 +41,58 @@ var migration009 string
 //go:embed migrations/010_fix_sessions.sql
 var migration010 string
 
+// sqliteMagic is the 16-byte header every SQLite database file starts with.
+const sqliteMagic = "SQLite format 3\x00"
+
+// checkDatabaseFile rejects an existing file that is not a SQLite database.
+//
+// Without this pre-flight check the failure surfaces much later, from the first
+// pragma, as
+//
+//	sqlite3: invalid _pragma: sqlite3: file is not a database
+//
+// which never names the path — so a stray file left in the data directory
+// looks like a DSN or driver defect instead of like junk that should be
+// removed. A zero-length file is deliberately accepted: SQLite treats it as a
+// brand-new database, which is exactly what a first run against an empty data
+// directory produces.
+func checkDatabaseFile(path string) error {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil // not there yet — SQLite will create it
+	}
+	if err != nil {
+		return fmt.Errorf("open sqlite: %w", err)
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return fmt.Errorf("open sqlite: %w", err)
+	}
+	if info.IsDir() {
+		return fmt.Errorf("open sqlite: %s is a directory, not a database file", path)
+	}
+	if info.Size() == 0 {
+		return nil // empty file = new database
+	}
+
+	header := make([]byte, len(sqliteMagic))
+	if _, err := io.ReadFull(f, header); err != nil {
+		return fmt.Errorf("open sqlite: %s is not a SQLite database (%d bytes) — move it aside and restart", path, info.Size())
+	}
+	if string(header) != sqliteMagic {
+		return fmt.Errorf("open sqlite: %s is not a SQLite database (%d bytes, starts with %q) — move it aside and restart", path, info.Size(), header)
+	}
+	return nil
+}
+
 // Open opens (or creates) the Webux SQLite database.
 func Open(path string) (*sql.DB, error) {
+	if err := checkDatabaseFile(path); err != nil {
+		return nil, err
+	}
+
 	// The driver is github.com/ncruces/go-sqlite3, whose DSN syntax is NOT
 	// mattn/go-sqlite3's: it only reads options when the name starts with
 	// "file:", and PRAGMAs are spelled _pragma=name(value).

@@ -106,6 +106,18 @@ The `cp` was run twice. Fix with:
 rm -rf cmd/webux/dist && cp -r web/dist cmd/webux/dist
 ```
 
+**`migration failed ... file is not a database`**
+The backend exits *before* it binds `:8989`, so the only symptom you see is
+vite reporting `connect ECONNREFUSED 127.0.0.1:8989` on `/api/*` and `/ws`.
+Cause: `$WEBUX_DATA_DIR/webux.db` already exists but is not a SQLite database
+(in dev the data directory is `/tmp/webux-data`, and a stray file written
+there survives across runs). Check it, then move it aside:
+
+```bash
+file /tmp/webux-data/webux.db                       # "ASCII text" => junk
+rm -rf /tmp/webux-data                              # sessions + cert are regenerated
+```
+
 **Service management requires root**
 The dbus system bus requires elevated privileges. Run with `sudo`.
 
